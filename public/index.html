@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hydroponic Controller</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue:#5d77f6;--blue-dark:#3d57d6;--blue-light:#eef1fe;
+  --blue-mid:#c8d0fb;--text:#1a1a2e;--sub:#6b7280;
+  --border:#e5e7eb;--bg:#f5f6ff;--white:#ffffff;
+  --green:#16a34a;--red:#dc2626;--amber:#d97706;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;
+  max-width:520px;margin:0 auto;padding:12px 14px 32px}
+h1{font-size:18px;font-weight:600;color:var(--blue-dark);margin:0}
+.meta{font-size:12px;color:var(--sub);margin:2px 0 10px}
+.card{background:var(--white);border:1px solid var(--border);
+  border-radius:12px;padding:14px;margin-bottom:10px}
+.card-hdr{font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px}
+.pill{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;
+  border-radius:20px;font-size:11px;font-weight:500}
+.pill-on{background:#dcfce7;color:#15803d}
+.pill-off{background:#f3f4f6;color:var(--sub)}
+.pill-done{background:var(--blue-light);color:var(--blue-dark)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:var(--sub);font-weight:500;font-size:11px;
+  padding:4px 6px;border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.03em}
+td{padding:9px 6px;border-bottom:1px solid #f9f9f9;vertical-align:middle}
+.btn{display:inline-flex;align-items:center;justify-content:center;
+  padding:6px 14px;border-radius:8px;text-decoration:none;font-size:13px;
+  font-weight:500;cursor:pointer;border:none;transition:opacity .15s;font-family:inherit}
+.btn:active{opacity:.8}
+.btn-primary{background:var(--blue);color:var(--white)}
+.btn-primary:hover{background:var(--blue-dark)}
+.btn-secondary{background:var(--blue-light);color:var(--blue-dark)}
+.btn-danger{background:#fef2f2;color:var(--red);border:1px solid #fecaca}
+.btn-ghost{background:#f9fafb;color:var(--sub);border:1px solid var(--border)}
+.btn-sm{padding:3px 9px;font-size:11px;border-radius:6px}
+.btn-full{width:100%;margin-top:10px;padding:11px}
+input,select{width:100%;padding:8px 10px;font-size:14px;
+  border:1px solid var(--border);border-radius:8px;outline:none;
+  transition:border-color .15s;background:var(--white);color:var(--text)}
+input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(93,119,246,.12)}
+label{font-size:12px;color:var(--sub);display:block;margin:10px 0 3px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.notice{background:var(--blue-light);border-left:3px solid var(--blue);
+  padding:9px 12px;border-radius:8px;margin-bottom:10px;font-size:13px;color:var(--blue-dark)}
+.alert-running{background:#fffbeb;border-left:3px solid var(--amber);
+  padding:9px 12px;border-radius:8px;margin-bottom:10px;font-size:13px;color:var(--amber)}
+.stat-row{display:flex;gap:8px;margin-bottom:10px}
+.stat{flex:1;background:var(--blue-light);border-radius:10px;padding:10px 12px}
+.stat-val{font-size:18px;font-weight:600;color:var(--blue-dark)}
+.stat-lbl{font-size:11px;color:var(--sub);margin-top:1px}
+.nav-row{display:flex;gap:8px;margin-top:8px}
+.nav-row button{flex:1;text-align:center;padding:9px;background:var(--white);
+  border:1px solid var(--border);border-radius:8px;
+  color:var(--sub);font-size:12px;font-weight:500;cursor:pointer;font-family:inherit}
+.nav-row button:hover{border-color:var(--blue);color:var(--blue)}
+.nav-row button.active{background:var(--blue);color:var(--white);border-color:var(--blue)}
+.hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.conn{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--sub)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block}
+.dot-off{background:var(--red)}
+.page{display:none}.page.active{display:block}
+.view-tabs{display:flex;gap:6px;margin-bottom:12px}
+.tab{flex:1;padding:7px;text-align:center;border-radius:8px;cursor:pointer;
+  font-size:13px;font-weight:500;border:1px solid var(--border);
+  background:var(--white);color:var(--sub);transition:all .15s}
+.tab.active{background:var(--blue);color:var(--white);border-color:var(--blue)}
+.week-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.week-nav button{background:var(--white);border:1px solid var(--border);
+  border-radius:8px;padding:6px 14px;cursor:pointer;font-size:13px;color:var(--sub);font-family:inherit}
+.week-nav button:hover{border-color:var(--blue);color:var(--blue)}
+.week-nav button:disabled{opacity:.35;cursor:default}
+.week-label{font-size:13px;font-weight:600;color:var(--text)}
+.chart-wrap{background:var(--white);border:1px solid var(--border);border-radius:12px;
+  padding:14px;margin-bottom:10px;position:relative}
+.bar-chart{display:flex;align-items:flex-end;gap:2px;height:200px;width:100%;overflow-x:auto}
+.bar-col{display:flex;flex-direction:column-reverse;align-items:center;flex:1;min-width:0;height:100%}
+.month-col{flex:1;min-width:0}
+.bar{width:70%;border-radius:3px 3px 0 0;background:var(--blue);
+  transition:height .3s ease;min-height:2px;cursor:pointer;position:relative}
+.bar:hover{background:var(--blue-dark)}
+.bar-tip{position:absolute;bottom:calc(100%+4px);left:50%;transform:translateX(-50%);
+  background:var(--text);color:var(--white);padding:3px 7px;border-radius:5px;
+  font-size:11px;white-space:nowrap;pointer-events:none;display:none;z-index:10}
+.bar:hover .bar-tip{display:block}
+.bar-lbl{font-size:8px;color:var(--sub);margin-bottom:4px;text-align:center;line-height:1.1;width:18px;overflow:hidden}
+.empty-chart{height:200px;display:flex;align-items:center;justify-content:center;
+  color:var(--sub);font-size:13px}
+.summary-row{display:flex;gap:8px;margin-bottom:10px}
+.s-box{flex:1;background:var(--blue-light);border-radius:10px;padding:10px;text-align:center}
+.s-val{font-size:16px;font-weight:600;color:var(--blue-dark)}
+.s-lbl{font-size:11px;color:var(--sub);margin-top:2px}
+.stale{opacity:.5;font-style:italic}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div>
+    <h1>Hydroponic Controller</h1>
+    <p class="meta" id="meta">Loading...</p>
+  </div>
+  <div class="conn">
+    <span class="dot" id="conn-dot"></span>
+    <span id="conn-txt">--</span>
+  </div>
+</div>
+
+<div id="relay-bar"></div>
+<div id="notice"></div>
+
+<div class="stat-row">
+  <div class="stat"><div class="stat-val" id="s-schedules">--</div><div class="stat-lbl">Schedules</div></div>
+  <div class="stat"><div class="stat-val" id="s-sd">--</div><div class="stat-lbl">SD Card</div></div>
+  <div class="stat"><div class="stat-val" id="s-time">--</div><div class="stat-lbl">Time</div></div>
+</div>
+
+<div id="last-event-card"></div>
+
+<div class="nav-row" style="margin-bottom:10px">
+  <button onclick="showPage('schedules')" id="nav-schedules" class="active">Schedules</button>
+  <button onclick="showPage('manual')" id="nav-manual">Manual</button>
+  <button onclick="showPage('graph')" id="nav-graph">Graph</button>
+</div>
+
+<!-- SCHEDULES PAGE -->
+<div class="page active" id="page-schedules">
+  <div class="card">
+    <div class="card-hdr">Schedules</div>
+    <table>
+      <tr><th>Time</th><th>Duration</th><th>Status</th><th></th></tr>
+      <tbody id="schedule-tbody"><tr><td colspan="4" style="text-align:center;color:var(--sub);padding:18px">Loading...</td></tr></tbody>
+    </table>
+  </div>
+  <div class="card">
+    <div class="card-hdr">Add schedule</div>
+    <div class="row3">
+      <div><label>Hour (0-23)</label><input id="add-hour" type="number" min="0" max="23" placeholder="10"></div>
+      <div><label>Minute</label><input id="add-min" type="number" min="0" max="59" placeholder="0"></div>
+      <div><label>Duration (min)</label><input id="add-dur" type="number" min="1" max="120" placeholder="15"></div>
+    </div>
+    <button class="btn btn-primary btn-full" onclick="addSchedule()">Add schedule</button>
+  </div>
+</div>
+
+<!-- MANUAL PAGE -->
+<div class="page" id="page-manual">
+  <div class="card">
+    <div class="card-hdr">Manual run</div>
+    <label>Duration (seconds)</label>
+    <input id="man-dur" type="number" min="5" max="600" placeholder="180">
+    <button class="btn btn-primary btn-full" id="btn-trigger" onclick="triggerManual()">Start manual cycle</button>
+    <button class="btn btn-danger btn-full" style="margin-top:6px" onclick="sendCommand('stop',{})">Stop relay</button>
+  </div>
+  <div class="card">
+    <div class="card-hdr">System</div>
+    <button class="btn btn-secondary btn-full" onclick="sendCommand('resync',{})">Resync time</button>
+  </div>
+</div>
+
+<!-- GRAPH PAGE -->
+<div class="page" id="page-graph">
+  <div class="view-tabs">
+    <div class="tab active" onclick="setView('week')" id="tab-week">Week</div>
+    <div class="tab" onclick="setView('month')" id="tab-month">Month</div>
+    <div class="tab" onclick="setView('all')" id="tab-all">All time</div>
+  </div>
+  <div id="week-nav" class="week-nav">
+    <button onclick="prevPeriod()">Prev</button>
+    <span class="week-label" id="period-label"></span>
+    <button onclick="nextPeriod()" id="btn-next">Next</button>
+  </div>
+  <div class="chart-wrap"><div class="bar-chart" id="chart"></div></div>
+  <div class="summary-row" id="summary"></div>
+</div>
+
+<p style="text-align:center;font-size:11px;color:var(--sub);margin-top:12px">Updates every 10s</p>
+
+<script>
+let cycles=[], relayOn=false;
+let view='week', offset=0;
+let noticeTimer=null;
+
+function showPage(p){
+  document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.nav-row button').forEach(el=>el.classList.remove('active'));
+  document.getElementById('page-'+p).classList.add('active');
+  document.getElementById('nav-'+p).classList.add('active');
+  if(p==='graph') renderChart();
+}
+
+function showNotice(msg,isError){
+  clearTimeout(noticeTimer);
+  const el=document.getElementById('notice');
+  el.innerHTML="<div class='"+(isError?'alert-running':'notice')+"'>"+msg+"</div>";
+  noticeTimer=setTimeout(()=>el.innerHTML='',4000);
+}
+
+async function sendCommand(command,params){
+  try{
+    const r=await fetch('/api/command',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({command,params})});
+    const d=await r.json();
+    if(d.ok) showNotice('Command sent — waiting for controller');
+    else showNotice('Error: '+JSON.stringify(d),true);
+  }catch(e){showNotice('Network error',true);}
+}
+
+function addSchedule(){
+  const h=parseInt(document.getElementById('add-hour').value);
+  const m=parseInt(document.getElementById('add-min').value);
+  const dur=parseInt(document.getElementById('add-dur').value);
+  if(isNaN(h)||isNaN(m)||isNaN(dur)||h<0||h>23||m<0||m>59||dur<1){
+    showNotice('Please fill in all fields correctly',true); return;
+  }
+  sendCommand('add_schedule',{hour:h,minute:m,duration_sec:dur*60});
+  document.getElementById('add-hour').value='';
+  document.getElementById('add-min').value='';
+  document.getElementById('add-dur').value='';
+}
+
+function triggerManual(){
+  const dur=parseInt(document.getElementById('man-dur').value)||180;
+  sendCommand('trigger',{dur});
+}
+
+async function fetchState(){
+  try{
+    const r=await fetch('/api/state');
+    const d=await r.json();
+    updateUI(d);
+  }catch(e){
+    document.getElementById('conn-dot').className='dot dot-off';
+    document.getElementById('conn-txt').textContent='Offline';
+  }
+}
+
+function updateUI(d){
+  const st=d.status||{};
+  relayOn=!!st.relay_on;
+
+  // Header
+  const wifiOk=!!st.wifi_ok;
+  document.getElementById('conn-dot').className='dot'+(wifiOk?'':' dot-off');
+  document.getElementById('conn-txt').textContent=wifiOk?'Online':'Offline';
+  document.getElementById('meta').textContent=st.current_time||'No time sync';
+
+  // Stats
+  document.getElementById('s-schedules').textContent=st.schedule_count??'--';
+  document.getElementById('s-sd').textContent=st.sd_ok?'OK':'--';
+  document.getElementById('s-time').textContent=st.time_synced?'Synced':'--';
+
+  // Relay bar
+  const rb=document.getElementById('relay-bar');
+  rb.innerHTML=relayOn
+    ?"<div class='alert-running'>Relay ON — "+st.relay_remaining+"s remaining</div>"
+    :'';
+
+  // Last event
+  const lec=document.getElementById('last-event-card');
+  lec.innerHTML=st.last_event
+    ?"<div class='card' style='font-size:12px;color:var(--sub)'><strong style='color:var(--text)'>Last event</strong><br>"+st.last_event+"</div>"
+    :'';
+
+  // Schedules
+  const scheds=d.schedules||[];
+  let rows='';
+  if(!scheds.length){
+    rows="<tr><td colspan='4' style='text-align:center;color:var(--sub);padding:18px'>No schedules yet</td></tr>";
+  } else {
+    for(let i=0;i<scheds.length;i++){
+      const s=scheds[i];
+      const tl=(s.hour<10?'0':'')+s.hour+':'+(s.minute<10?'0':'')+s.minute;
+      const dm=Math.floor(s.duration_sec/60), ds=s.duration_sec%60;
+      const dl=dm+'m'+(ds>0?ds+'s':'');
+      const badge=s.fired_today
+        ?"<span class='pill pill-done'>Done</span> "
+        :(s.enabled?"<span class='pill pill-on'>On</span> ":"<span class='pill pill-off'>Off</span> ");
+      rows+="<tr style='"+(s.enabled?'':'opacity:.45')+"'>"
+        +"<td><strong>"+tl+"</strong></td>"
+        +"<td>"+dl+"</td>"
+        +"<td>"+badge
+        +"<button class='btn btn-secondary btn-sm' onclick='sendCommand(\"toggle_schedule\",{index:"+i+"})'>"
+        +(s.enabled?'Disable':'Enable')+"</button></td>"
+        +"<td><button class='btn btn-danger btn-sm' onclick='if(confirm(\"Remove?\"))sendCommand(\"delete_schedule\",{index:"+i+"})'>Remove</button></td></tr>";
+    }
+  }
+  document.getElementById('schedule-tbody').innerHTML=rows;
+
+  // Cycles for graph
+  cycles=(d.cycles||[]).map(c=>({...c,dur:Number(c.duration)}));
+  if(document.getElementById('page-graph').classList.contains('active')) renderChart();
+}
+
+// ── CHART ─────────────────────────────────────────────────────────────────────
+function fmtDur(s){if(s<60)return s+'s';return Math.floor(s/60)+'m'+(s%60?String(s%60).padStart(2,'0')+'s':'');}
+function parseDate(str){if(!str||str.length<10)return null;return new Date(str+'T12:00:00');}
+function weekStart(d){const r=new Date(d);const day=d.getDay()||7;r.setDate(d.getDate()-day+1);r.setHours(0,0,0,0);return r;}
+function addDays(d,n){const r=new Date(d);r.setDate(r.getDate()+n);return r;}
+function fmtDate(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function fmtShort(d){return d.getDate()+'/'+(d.getMonth()+1);}
+function fmtMonth(d){return d.toLocaleString('default',{month:'short',year:'numeric'});}
+
+const today=new Date(); today.setHours(0,0,0,0);
+
+function getRange(){
+  if(view==='week'){
+    const ws=weekStart(addDays(today,offset*7));
+    const we=addDays(ws,6);
+    return {start:ws,end:we,label:fmtShort(ws)+' - '+fmtShort(we)+' '+we.getFullYear()};
+  }
+  if(view==='month'){
+    const d=new Date(today.getFullYear(),today.getMonth()+offset,1);
+    const s=new Date(d.getFullYear(),d.getMonth(),1);
+    const e=new Date(d.getFullYear(),d.getMonth()+1,0);
+    return {start:s,end:e,label:fmtMonth(s)};
+  }
+  if(!cycles.length)return {start:today,end:today,label:'All time'};
+  const dates=cycles.map(c=>parseDate(c.date)).filter(Boolean);
+  if(!dates.length)return {start:today,end:today,label:'All time'};
+  const s=new Date(Math.min(...dates.map(d=>d.getTime())));
+  const e=new Date(Math.max(...dates.map(d=>d.getTime())));
+  return {start:s,end:e,label:'All time'};
+}
+
+function getBuckets(range){
+  const buckets=[];
+  if(view==='week'){
+    for(let i=0;i<7;i++){
+      const d=addDays(range.start,i);
+      const key=fmtDate(d);
+      const cs=cycles.filter(c=>c.date===key);
+      const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      buckets.push({label:days[d.getDay()]+'\n'+fmtShort(d),cycles:cs});
+    }
+  } else if(view==='month'){
+    let d=new Date(range.start);
+    while(d<=range.end){
+      const key=fmtDate(d);
+      const cs=cycles.filter(c=>c.date===key);
+      buckets.push({label:String(d.getDate()),cycles:cs,month:true});
+      d=addDays(d,1);
+    }
+  } else {
+    if(!cycles.length)return [];
+    const dates=cycles.map(c=>parseDate(c.date)).filter(Boolean);
+    if(!dates.length)return [];
+    let cur=weekStart(new Date(Math.min(...dates.map(d=>d.getTime()))));
+    const end=weekStart(new Date(Math.max(...dates.map(d=>d.getTime()))));
+    if(cur.getTime()===end.getTime()) end.setDate(end.getDate()+6);
+    while(cur.getTime()<=end.getTime()){
+      const we=addDays(cur,6);
+      const cs=cycles.filter(c=>{const d=parseDate(c.date);return d&&d.getTime()>=cur.getTime()&&d.getTime()<=we.getTime();}).map(c=>({...c,dur:Number(c.dur)}));
+      buckets.push({label:fmtShort(cur),cycles:cs});
+      cur=addDays(cur,7);
+    }
+  }
+  return buckets;
+}
+
+function renderChart(){
+  const range=getRange();
+  document.getElementById('period-label').textContent=range.label;
+  document.getElementById('week-nav').style.display=view==='all'?'none':'flex';
+  document.getElementById('btn-next').disabled=(offset>=0);
+  const buckets=getBuckets(range);
+  const maxDur=Math.max(1,...buckets.map(b=>b.cycles.reduce((a,c)=>a+Number(c.dur),0)));
+  let html='';
+  if(!buckets.length){
+    html='<div class="empty-chart" style="width:100%">No data</div>';
+  } else {
+    for(const b of buckets){
+      const totalDur=b.cycles.reduce((a,c)=>a+Number(c.dur),0);
+      const count=b.cycles.length;
+      const pct=maxDur>0?(totalDur/maxDur*100):0;
+      const tipText=count?count+' cycle'+(count>1?'s':'')+'\\n'+fmtDur(totalDur):'No cycles';
+      html+='<div class="bar-col'+(b.month?' month-col':'')+'"><div class="bar" style="height:'+Math.max(pct,count?1:0)+'%;align-self:flex-end">';
+      if(count) html+='<div class="bar-tip">'+tipText.replace('\\n','<br>')+'</div>';
+      html+='</div><div class="bar-lbl">'+b.label.replace('\n','<br>')+'</div></div>';
+    }
+  }
+  document.getElementById('chart').innerHTML=html;
+  const allInRange=buckets.flatMap(b=>b.cycles);
+  const totalCyc=allInRange.length;
+  const totalDur=allInRange.reduce((a,c)=>a+Number(c.dur),0);
+  const avgDur=totalCyc?Math.round(totalDur/totalCyc):0;
+  document.getElementById('summary').innerHTML=
+    '<div class="s-box"><div class="s-val">'+totalCyc+'</div><div class="s-lbl">Cycles</div></div>'+
+    '<div class="s-box"><div class="s-val">'+fmtDur(totalDur)+'</div><div class="s-lbl">Total time</div></div>'+
+    '<div class="s-box"><div class="s-val">'+fmtDur(avgDur)+'</div><div class="s-lbl">Avg duration</div></div>';
+  ['week','month','all'].forEach(v=>{
+    const el=document.getElementById('tab-'+v);
+    if(el) el.className='tab'+(view===v?' active':'');
+  });
+}
+
+function setView(v){view=v;offset=0;renderChart();}
+function prevPeriod(){offset--;renderChart();}
+function nextPeriod(){if(offset<0){offset++;renderChart();}}
+
+fetchState();
+setInterval(fetchState, 10000);
+</script>
+</body>
+</html>
