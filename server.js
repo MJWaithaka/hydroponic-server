@@ -127,4 +127,36 @@ app.post('/api/command', (req, res) => {
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
+async function sendTelegram(msg) {
+  const token = process.env.TG_TOKEN;
+  const chatId = process.env.TG_CHAT_ID;
+  if (!token || !chatId) return;
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text: '[Farm] ' + msg })
+    });
+  } catch(e) { console.error('Telegram error:', e.message); }
+}
+
+const OFFLINE_THRESHOLD_MS = 5 * 60 * 1000;
+let offlineAlertSent = false;
+
+setInterval(async () => {
+  const row = db.prepare('SELECT updated_at FROM status WHERE id=1').get();
+  if (!row || !row.updated_at) return;
+  const lastSeen = new Date(row.updated_at).getTime();
+  const diff = Date.now() - lastSeen;
+  if (diff > OFFLINE_THRESHOLD_MS && !offlineAlertSent) {
+    offlineAlertSent = true;
+    const mins = Math.floor(diff / 60000);
+    await sendTelegram(`ESP32 has been offline for ${mins} minutes — possible power cut at the farm.`);
+  }
+  if (diff < OFFLINE_THRESHOLD_MS && offlineAlertSent) {
+    offlineAlertSent = false;
+    await sendTelegram('ESP32 is back online.');
+  }
+}, 60000);
+
 app.listen(PORT, () => console.log(`Irrigation server running on port ${PORT}`));
