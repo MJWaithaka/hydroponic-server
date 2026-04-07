@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="128" fill="#000"/>
+  <circle cx="256" cy="256" r="160" fill="none" stroke="#2c2c2e" stroke-width="16"/>
+  <circle cx="256" cy="96" r="16" fill="#fff"/>
+  <path d="M256 152c-24 0-43 19-43 43 0 39 43 86 43 86s43-47 43-86c0-24-19-43-43-43Zm0 59a16 16 0 1 1 0-32 16 16 0 0 1 0 32Z" fill="#fff"/>
+  <rect x="171" y="327" width="170" height="48" rx="24" fill="#2c2c2e"/>
+  <text x="256" y="361" fill="#fff" font-family="Arial, sans-serif" font-size="28" text-anchor="middle">CTRL</text>
+</svg>
