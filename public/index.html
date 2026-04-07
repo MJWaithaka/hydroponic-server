@@ -517,7 +517,7 @@
         <div class="sub-pill active" id="btn-tab-graph" onclick="setHistTab('graph')">Graph</div>
         <div class="sub-pill" id="btn-tab-log" onclick="setHistTab('log')">Plain Log</div>
         <div style="flex:1"></div>
-        <a href="/api/log" download="irrigation_log.txt" style="text-decoration:none;">
+        <a href="#" onclick="downloadLog(); return false;" style="text-decoration:none;">
           <div class="sub-pill" style="display:flex;align-items:center;gap:4px">
             <span class="material-symbols-outlined" style="font-size:16px">download</span>
           </div>
@@ -620,82 +620,126 @@
   </div>
 
 <script>
-  // Setup API Base URL based on where this is hosted
-  const isEsp = window.location.hostname === '172.23.6.200';
-  const API_BASE = isEsp ? 'http://172.23.6.200' : '';
-
-  // State
-  let globalState = { status: {}, schedules: [], cycles: [] };
-  let globalPresets = [];
-  
+  const API_BASE = '';
+  let globalState = { status: {}, schedules: [], cycles: [], presets: [] };
   let editId = null;
+  let authToken = localStorage.getItem('farm_token') || '';
+  let histMode = 'graph';
+  let logsFetched = false;
+  let logHtmlCache = '';
+  let graphCache = {};
+  let bTmr;
 
-  // Navigation
+  function reqOpts(method = 'GET', bodyObj = null) {
+    const opts = { method, headers: {} };
+    if (authToken) opts.headers.Authorization = 'Bearer ' + authToken;
+    if (bodyObj) {
+      opts.headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(bodyObj);
+    }
+    return opts;
+  }
+
+  function showSpin() { document.getElementById('global-spinner').classList.add('show'); }
+  function hideSpin() { document.getElementById('global-spinner').classList.remove('show'); }
+
+  function banner(msg, duration = 3000) {
+    const el = document.getElementById('banner');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(bTmr);
+    bTmr = setTimeout(() => el.classList.remove('show'), duration);
+  }
+
+  function fmtTime(h, m) {
+    return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+  }
+
+  function fmtDurSec(s) {
+    const mins = Math.floor(s / 60);
+    const secs = s % 60;
+    return mins + 'm' + (secs > 0 ? ' ' + secs + 's' : '');
+  }
+
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function getStartAngle(hh, mm) {
+    return (((hh * 3600) + (mm * 60)) / 86400) * 360 - 90;
+  }
+
+  function getRingArc(hh, mm, durSec) {
+    const len = (durSec / 86400) * 565.48;
+    const angle = getStartAngle(hh, mm);
+    return `<circle cx="100" cy="100" r="90" fill="none" stroke="var(--sub)" stroke-width="3" transform="rotate(${angle} 100 100)" stroke-dasharray="${Math.max(1, len)} 600"></circle>`;
+  }
+
   function nav(page) {
     document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     document.getElementById('p-' + page).classList.add('active');
     document.getElementById('n-' + page).classList.add('active');
-    
-    // Set page title
-    const titles = { home:'Irrigation', sched:'Schedule', man:'Manual', hist:'History' };
-    document.getElementById('page-title').textContent = titles[page];
-    
-    // Animate Nav Pill
+    document.getElementById('page-title').textContent = ({ home: 'Irrigation', sched: 'Schedule', man: 'Manual', hist: 'History' })[page];
+
     const item = document.getElementById('n-' + page);
-    const pill = document.getElementById('nav-pill');
-    pill.style.transform = `translateX(${item.offsetLeft + (item.offsetWidth / 2) - 32}px)`;
+    document.getElementById('nav-pill').style.transform = `translateX(${item.offsetLeft + (item.offsetWidth / 2) - 32}px)`;
 
     if (page === 'hist') renderHist();
   }
 
-  // Modals
-  function showModal(id) { editId = null; document.getElementById(id).classList.add('show'); }
-  function hideModal(e, id) { 
-    if(e && e.target !== document.getElementById(id)) return;
-    document.getElementById(id).classList.remove('show'); 
+  function showModal(id) {
+    editId = null;
+    document.getElementById(id).classList.add('show');
+  }
+
+  function hideModal(e, id) {
+    if (e && e.target !== document.getElementById(id)) return;
+    document.getElementById(id).classList.remove('show');
+  }
+
+  function clearScheduleForm() {
+    document.getElementById('in-sh').value = '';
+    document.getElementById('in-sm').value = '';
+    document.getElementById('in-sd-m').value = '';
+    document.getElementById('in-sd-s').value = '';
+  }
+
+  function clearPresetForm() {
+    document.getElementById('in-pl').value = '';
+    document.getElementById('in-pd-m').value = '';
+    document.getElementById('in-pd-s').value = '';
   }
 
   function editSched(idx) {
-    const s = globalState.schedules[idx];
+    const s = (globalState.schedules || [])[idx];
+    if (!s) return;
     editId = idx;
     document.getElementById('in-sh').value = s.hour;
     document.getElementById('in-sm').value = s.minute;
-    document.getElementById('in-sd-m').value = Math.floor(s.duration_sec/60);
-    document.getElementById('in-sd-s').value = s.duration_sec%60;
+    document.getElementById('in-sd-m').value = Math.floor(s.duration_sec / 60);
+    document.getElementById('in-sd-s').value = s.duration_sec % 60;
     document.getElementById('m-sched').classList.add('show');
   }
 
   function editPreset(idx) {
-    const p = globalPresets[idx];
+    const p = (globalState.presets || [])[idx];
+    if (!p) return;
     editId = idx;
-    document.getElementById('in-pl').value = p.label;
-    document.getElementById('in-pd-m').value = Math.floor(p.duration_sec/60);
-    document.getElementById('in-pd-s').value = p.duration_sec%60;
+    document.getElementById('in-pl').value = p.label || '';
+    document.getElementById('in-pd-m').value = Math.floor(p.duration_sec / 60);
+    document.getElementById('in-pd-s').value = p.duration_sec % 60;
     document.getElementById('m-preset').classList.add('show');
   }
 
-  // Auth State
-  let authToken = localStorage.getItem('farm_token') || '';
-
-  function reqOpts(method = 'GET', bodyObj = null) {
-    const o = { method, headers: {} };
-    if (authToken) o.headers['Authorization'] = 'Bearer ' + authToken;
-    if (bodyObj) {
-      o.headers['Content-Type'] = 'application/json';
-      o.body = JSON.stringify(bodyObj);
-    }
-    return o;
-  }
-
-  function reqOptsForm(bodyString) {
-    const o = { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' } };
-    if (authToken) o.headers['Authorization'] = 'Bearer ' + authToken;
-    o.body = bodyString;
-    return o;
-  }
-
   function showLogin() {
+    authToken = '';
+    localStorage.removeItem('farm_token');
     document.getElementById('login-overlay').classList.remove('hidden');
     document.getElementById('in-pass').value = '';
     document.getElementById('in-pass').focus();
@@ -703,112 +747,127 @@
 
   async function doLogin() {
     const pass = document.getElementById('in-pass').value;
-    const testToken = btoa('admin:' + pass);
+    const token = btoa('admin:' + pass);
     showSpin();
     try {
-      const r = await fetch(API_BASE + '/api/state', { method: 'GET', headers: { 'Authorization': 'Bearer ' + testToken} });
+      const r = await fetch(API_BASE + '/api/state', { method: 'GET', headers: { Authorization: 'Bearer ' + token } });
       if (r.status === 401) throw new Error('Auth');
-      
-      authToken = testToken;
-      localStorage.setItem('farm_token', testToken);
+      authToken = token;
+      localStorage.setItem('farm_token', token);
       document.getElementById('login-overlay').classList.add('hidden');
       await fetchStateLoopOnce();
-      fetchPresets();
-      fetchLog();
-    } catch(e) {
+      await fetchLog();
+    } catch (e) {
       banner('Invalid Password');
       const box = document.getElementById('login-box-inner');
       box.style.transform = 'translate(-10px, 0)';
-      setTimeout(()=>box.style.transform='translate(10px, 0)', 100);
-      setTimeout(()=>box.style.transform='translate(-10px, 0)', 200);
-      setTimeout(()=>box.style.transform='translate(0, 0)', 300);
+      setTimeout(() => box.style.transform = 'translate(10px, 0)', 100);
+      setTimeout(() => box.style.transform = 'translate(-10px, 0)', 200);
+      setTimeout(() => box.style.transform = 'translate(0, 0)', 300);
     }
     hideSpin();
   }
 
-  // Banner Notice
-  let bTmr;
-  function banner(msg, duration = 3000) {
-    const b = document.getElementById('banner');
-    b.textContent = msg;
-    b.classList.add('show');
-    clearTimeout(bTmr);
-    bTmr = setTimeout(() => b.classList.remove('show'), duration);
+  async function fetchStateLoopOnce() {
+    try {
+      const r = await fetch(API_BASE + '/api/state', reqOpts('GET'));
+      if (r.status === 401) {
+        showLogin();
+        return false;
+      }
+      globalState = await r.json();
+      globalState.presets = globalState.presets || [];
+      renderAll();
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
 
-  // Formatting
-  function fmtTime(h, m) { return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0'); }
-  function fmtDurSec(s) {
-    const m = Math.floor(s / 60);
-    const rs = s % 60;
-    return m + "m" + (rs > 0 ? " " + rs + "s" : "");
+  async function loopState() {
+    if (authToken) {
+      const ok = await fetchStateLoopOnce();
+      if (ok && document.getElementById('p-hist').classList.contains('active') && logsFetched) renderHist();
+    }
+    setTimeout(loopState, 10000);
   }
 
-  // SVG Ring Math
-  // R=90, Center=100,100, Circumference ≈ 565.48
-  // 0 degrees is top (12 o'clock).
-  function getStartAngle(hh, mm) {
-    const secInDay = 86400;
-    const startSec = (hh * 3600) + (mm * 60);
-    const pct = startSec / secInDay;
-    return (pct * 360) - 90; // -90 so 0 is top
-  }
-  
-  function getRingArc(hh, mm, durSec, isDone) {
-    const secInDay = 86400;
-    const pctLen = durSec / secInDay;
-    const len = pctLen * 565.48;
-    const angle = getStartAngle(hh, mm);
-    
-    // Draw an arc starting from the top, then rotate the whole circle
-    return `<circle cx="100" cy="100" r="90" fill="none" 
-            stroke="var(--sub)" 
-            stroke-width="3" 
-            transform="rotate(${angle} 100 100)"
-            stroke-dasharray="${Math.max(1, len)} 600"></circle>`;
+  async function apiCallRaw(command, params) {
+    const r = await fetch(API_BASE + '/api/command', reqOpts('POST', { command, params }));
+    if (r.status === 401) {
+      showLogin();
+      throw new Error('Auth');
+    }
+    if (!r.ok) throw new Error('Queue failed');
   }
 
-  // Update logic
+  async function waitForDeviceSync(previousUpdatedAt, timeoutMs = 25000) {
+    const started = Date.now();
+    while (Date.now() - started < timeoutMs) {
+      await new Promise(resolve => setTimeout(resolve, 2500));
+      const ok = await fetchStateLoopOnce();
+      if (!ok) return false;
+      const nextUpdatedAt = ((globalState || {}).status || {}).updated_at || '';
+      if (nextUpdatedAt && nextUpdatedAt !== previousUpdatedAt) return true;
+    }
+    return false;
+  }
+
+  async function queueCommand(command, params = {}, waitingMsg = 'Queued...', successMsg = 'Applied') {
+    const previousUpdatedAt = ((globalState || {}).status || {}).updated_at || '';
+    showSpin();
+    banner(waitingMsg, 30000);
+    try {
+      await apiCallRaw(command, params);
+      const synced = await waitForDeviceSync(previousUpdatedAt);
+      if (synced) {
+        banner(successMsg);
+      } else {
+        banner('Queued. Waiting for device pickup.', 5000);
+      }
+      if (logsFetched || command === 'clear_log') await fetchLog();
+    } catch (e) {
+      if (e.message !== 'Auth') banner('Failed to connect', 4000);
+    }
+    hideSpin();
+  }
+
+  function apiCall(command, params = {}, waitingMsg = 'Waiting for controller...', successMsg = 'Saved') {
+    return queueCommand(command, params, waitingMsg, successMsg);
+  }
+
   function renderAll() {
     const st = globalState.status || {};
-    const scheds = globalState.schedules || [];
-    
-    // Header Status
+    const schedules = globalState.schedules || [];
+    const presets = globalState.presets || [];
+
     const ageMs = Date.now() - (st.updated_at ? new Date(st.updated_at).getTime() : 0);
-    const online = (st.updated_at && ageMs < 120000) || isEsp;
-    document.getElementById('status-dot').className = 'status-dot ' + (online ? 'online' : '');
-    
-    // Home - Stats
+    document.getElementById('status-dot').className = 'status-dot ' + ((st.updated_at && ageMs < 120000) ? 'online' : '');
+
     document.getElementById('s-scheds').textContent = st.schedule_count || '0';
     document.getElementById('s-time').textContent = st.time_synced ? 'OK' : 'Sync';
     document.getElementById('s-sd').textContent = st.sd_ok ? 'OK' : 'Err';
-    document.getElementById('s-last').innerHTML = st.last_event || 'No events.';
-    
-    // Home - Ring Center / Dot
-    const timeMatch = (st.current_time || "").match(/(\d\d):(\d\d):(\d\d)/);
-    let hh=0, mm=0, ss=0;
-    if (timeMatch) {
-      hh = parseInt(timeMatch[1]); mm = parseInt(timeMatch[2]); ss = parseInt(timeMatch[3]);
+    document.getElementById('s-last').textContent = st.last_event || 'No events.';
+
+    const match = String(st.current_time || '').match(/(\d\d):(\d\d):(\d\d)/);
+    if (match) {
+      const hh = parseInt(match[1], 10);
+      const mm = parseInt(match[2], 10);
+      const ss = parseInt(match[3], 10);
       document.getElementById('ring-time').textContent = fmtTime(hh, mm);
-      
-      // Move the dot
       const angleDeg = ((hh * 3600 + mm * 60 + ss) / 86400) * 360 - 90;
-      const angleRad = angleDeg * (Math.PI / 180);
-      const dotX = 100 + 90 * Math.cos(angleRad);
-      const dotY = 100 + 90 * Math.sin(angleRad);
-      const dot = document.getElementById('ring-dot');
-      dot.setAttribute('cx', dotX);
-      dot.setAttribute('cy', dotY);
-      dot.style.display = 'block';
+      const angleRad = angleDeg * Math.PI / 180;
+      document.getElementById('ring-dot').setAttribute('cx', 100 + 90 * Math.cos(angleRad));
+      document.getElementById('ring-dot').setAttribute('cy', 100 + 90 * Math.sin(angleRad));
+      document.getElementById('ring-dot').style.display = 'block';
     } else {
       document.getElementById('ring-time').textContent = '--:--';
       document.getElementById('ring-dot').style.display = 'none';
     }
 
-    // Is running?
     if (st.relay_on) {
-      const rm = Math.ceil(st.relay_remaining / 60);
-      document.getElementById('ring-state').textContent = `Running: ${Math.max(1, rm)}m left`;
+      const minsLeft = Math.max(1, Math.ceil((st.relay_remaining || 0) / 60));
+      document.getElementById('ring-state').textContent = `Running: ${minsLeft}m left`;
       document.getElementById('ring-state').style.color = '#000';
       document.getElementById('ring-state').style.background = 'var(--text)';
     } else {
@@ -817,227 +876,124 @@
       document.getElementById('ring-state').style.background = 'var(--card-even)';
     }
 
-    // Build arcs for schedules
-    let arcsHtml = '';
-    scheds.forEach(s => {
-      if (s.enabled) arcsHtml += getRingArc(s.hour, s.minute, s.duration_sec, s.fired_today && !st.relay_on);
-    });
-    document.getElementById('ring-arcs').innerHTML = arcsHtml;
+    document.getElementById('ring-arcs').innerHTML = schedules.filter(s => s.enabled).map(s => getRingArc(s.hour, s.minute, s.duration_sec)).join('');
 
-    // Sched View (no borders, alternating backgrounds)
-    let sHtml = '';
-    scheds.forEach((s, idx) => {
-      sHtml += `
-        <div class="list-item ${!s.enabled ? 'disabled' : ''}">
-          <div>
-            <div class="list-time">${fmtTime(s.hour, s.minute)}</div>
-            <div class="list-dur">${fmtDurSec(s.duration_sec)}</div>
+    let scheduleHtml = schedules.map((s, idx) => `
+      <div class="list-item ${!s.enabled ? 'disabled' : ''}">
+        <div>
+          <div class="list-time">${fmtTime(s.hour, s.minute)}</div>
+          <div class="list-dur">${fmtDurSec(s.duration_sec)}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div class="toggle ${s.enabled ? 'on' : ''}" onclick="queueCommand('toggle_schedule', { index: ${idx} }, 'Waiting for controller...', 'Schedule saved')">
+            <div class="toggle-knob"></div>
           </div>
-          <div style="display:flex;align-items:center;gap:12px;">
-            <div class="toggle ${s.enabled ? 'on' : ''}" onclick="apiCall('toggle_schedule', {index:${idx}}, 'Updating...', 'Saved')">
-              <div class="toggle-knob"></div>
-            </div>
-            <button class="icon-btn" style="background:var(--card-even);" onclick="editSched(${idx})">
-              <span class="material-symbols-outlined">edit</span>
-            </button>
-            <button class="icon-btn danger" onclick="if(confirm('Delete schedule?')) apiCall('delete_schedule', {index:${idx}}, 'Deleting...', 'Deleted')">
-              <span class="material-symbols-outlined">delete</span>
-            </button>
-          </div>
-        </div>`;
-    });
-    if(!sHtml) sHtml = '<div style="text-align:center;color:var(--sub);margin-top:40px;">No schedules.</div>';
-    document.getElementById('sched-list').innerHTML = sHtml;
+          <button class="icon-btn" style="background:var(--card-even);" onclick="editSched(${idx})">
+            <span class="material-symbols-outlined">edit</span>
+          </button>
+          <button class="icon-btn danger" onclick="if(confirm('Delete schedule?')) queueCommand('delete_schedule', { index: ${idx} }, 'Waiting for controller...', 'Schedule deleted')">
+            <span class="material-symbols-outlined">delete</span>
+          </button>
+        </div>
+      </div>
+    `).join('');
+    if (!scheduleHtml) scheduleHtml = '<div style="text-align:center;color:var(--sub);margin-top:40px;">No schedules.</div>';
+    document.getElementById('sched-list').innerHTML = scheduleHtml;
 
-    // Manual View (Alternating)
-    let mHtml = '';
-    globalPresets.forEach((p, idx) => {
-      mHtml += `
-        <div class="list-item">
-          <div>
-            <div class="preset-title">${fmtDurSec(p.duration_sec)}</div>
-            <div class="preset-sub">${p.label || 'Cycle'}</div>
-          </div>
-          <div style="display:flex; align-items:center; gap:12px;">
-            <button class="icon-btn" style="background:var(--card-even);" onclick="editPreset(${idx})">
-              <span class="material-symbols-outlined">edit</span>
-            </button>
-            <button class="icon-btn danger" onclick="delPreset(${idx})">
-              <span class="material-symbols-outlined">delete</span>
-            </button>
-            <button class="icon-btn primary" onclick="apiCall('trigger', {dur:${p.duration_sec}}, 'Starting...', 'Started')">
-              <span class="material-symbols-outlined">play_arrow</span>
-            </button>
-          </div>
-        </div>`;
-    });
-    document.getElementById('man-list').innerHTML = mHtml;
+    let presetHtml = presets.map((p, idx) => `
+      <div class="list-item">
+        <div>
+          <div class="preset-title">${fmtDurSec(p.duration_sec)}</div>
+          <div class="preset-sub">${escapeHtml(p.label || 'Cycle')}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <button class="icon-btn" style="background:var(--card-even);" onclick="editPreset(${idx})">
+            <span class="material-symbols-outlined">edit</span>
+          </button>
+          <button class="icon-btn danger" onclick="delPreset(${idx})">
+            <span class="material-symbols-outlined">delete</span>
+          </button>
+          <button class="icon-btn primary" onclick="queueCommand('trigger', { dur: ${p.duration_sec} }, 'Waiting for controller...', 'Cycle started')">
+            <span class="material-symbols-outlined">play_arrow</span>
+          </button>
+        </div>
+      </div>
+    `).join('');
+    if (!presetHtml) presetHtml = '<div style="text-align:center;color:var(--sub);margin-top:40px;">No manual cycles yet.</div>';
+    document.getElementById('man-list').innerHTML = presetHtml;
   }
 
-  // Fetch Loops
-  async function loopState() {
-    try {
-      if (!authToken) return setTimeout(loopState, 10000);
-      const r = await fetch(API_BASE + '/api/state', reqOpts('GET'));
-      if (r.status === 401) return showLogin();
-      globalState = await r.json();
-      renderAll();
-      if(document.getElementById('p-hist').classList.contains('active')) renderHist();
-    } catch(e) { console.log('State fetch err', e); }
-    setTimeout(loopState, 10000);
-  }
-
-  async function fetchPresets() {
-    try {
-      const r = await fetch(API_BASE + (isEsp ? '/presets' : '/api/presets'), reqOpts('GET'));
-      if (r.status === 401) return showLogin();
-      const d = await r.json();
-      if (d.presets) globalPresets = d.presets;
-      renderAll();
-    } catch(e) {}
-  }
-
-  function showSpin() { document.getElementById('global-spinner').classList.add('show'); }
-  function hideSpin() { document.getElementById('global-spinner').classList.remove('show'); }
-
-  async function apiCallRaw(cmd, d) {
-    await fetch(API_BASE + '/api/command', reqOpts('POST', { command: cmd, params: d }));
-  }
-
-  async function apiCall(cmd, d = {}, waitMsg = 'Saving...', doneMsg = 'Saved') {
-    if (waitMsg) banner(waitMsg, 20000); 
-    showSpin();
-    try {
-      await apiCallRaw(cmd, d);
-      banner(doneMsg);
-      await fetchStateLoopOnce();
-    } catch(e) {
-      banner('Failed to connect', 4000);
-    }
-    hideSpin();
-  }
-
-  async function fetchStateLoopOnce() {
-    try {
-      const r = await fetch(API_BASE + '/api/state', reqOpts('GET'));
-      if(r.status === 401) return showLogin();
-      globalState = await r.json();
-      renderAll();
-    } catch(e){}
-  }
-
-  async function fetchPresets() {
-    try {
-      const r = await fetch(API_BASE + '/api/presets', reqOpts('GET'));
-      if(r.status === 401) return showLogin();
-      const d = await r.json();
-      globalPresets = d.presets || [];
-      renderPresets();
-    } catch(e) {}
-  }
-
-  // Add/Edit Handlers
   async function submitSched() {
-    const h = parseInt(document.getElementById('in-sh').value || 0);
-    const m = parseInt(document.getElementById('in-sm').value || 0);
-    const dm = parseInt(document.getElementById('in-sd-m').value || 0);
-    const ds = parseInt(document.getElementById('in-sd-s').value || 0);
-    const dur = (dm * 60) + ds;
-    if(dur <= 0) return banner('Invalid duration');
-    
-    showSpin();
-    try {
-      if (editId !== null && isEsp) await fetch(API_BASE + `/delete?i=${editId}`, reqOpts('GET'));
-      if (editId !== null && !isEsp) await apiCallRaw('edit_schedule', {index: editId, hour: h, minute: m, duration_sec: dur});
-      else await apiCallRaw('add_schedule', { hour: h, minute: m, duration_sec: dur });
-      
-      banner(editId !== null ? 'Cycle updated' : 'Cycle added');
-      await fetchStateLoopOnce();
-    } catch(e){ banner('Error saving'); }
-    hideSpin();
+    const h = parseInt(document.getElementById('in-sh').value || 0, 10);
+    const m = parseInt(document.getElementById('in-sm').value || 0, 10);
+    const dur = (parseInt(document.getElementById('in-sd-m').value || 0, 10) * 60) + parseInt(document.getElementById('in-sd-s').value || 0, 10);
+    if (h < 0 || h > 23 || m < 0 || m > 59 || dur <= 0) return banner('Invalid schedule');
+
     hideModal(null, 'm-sched');
-    document.getElementById('in-sh').value=''; document.getElementById('in-sm').value=''; 
-    document.getElementById('in-sd-m').value=''; document.getElementById('in-sd-s').value='';
+    await queueCommand(
+      editId !== null ? 'edit_schedule' : 'add_schedule',
+      editId !== null ? { index: editId, hour: h, minute: m, duration_sec: dur } : { hour: h, minute: m, duration_sec: dur },
+      'Waiting for controller...',
+      editId !== null ? 'Schedule updated' : 'Schedule added'
+    );
+    clearScheduleForm();
+    editId = null;
   }
 
   async function submitPreset() {
-    const lbl = document.getElementById('in-pl').value;
-    const dm = parseInt(document.getElementById('in-pd-m').value || 0);
-    const ds = parseInt(document.getElementById('in-pd-s').value || 0);
-    const dur = (dm * 60) + ds;
-    if(dur <= 0) return banner('Invalid duration');
-    
-    showSpin();
-    try {
-      if (editId !== null) {
-        await fetch(API_BASE + (isEsp ? `/presets/delete?i=${editId}` : '/api/presets/delete'), 
-          isEsp ? reqOpts('GET') : reqOpts('POST', { index: editId })
-        );
-      }
-      
-      if (isEsp) {
-        await fetch(API_BASE + '/presets/add', reqOptsForm(`dur=${dur}&label=${encodeURIComponent(lbl)}`));
-      } else {
-        await fetch(API_BASE + '/api/presets/add', reqOpts('POST', { duration_sec: dur, label: lbl }));
-      }
-      banner(editId !== null ? 'Cycle updated' : 'Cycle added');
-      document.getElementById('in-pl').value=''; 
-      document.getElementById('in-pd-m').value=''; document.getElementById('in-pd-s').value='';
-      await fetchPresets();
-    } catch(e) { banner('Error saving'); }
+    const label = document.getElementById('in-pl').value.trim();
+    const dur = (parseInt(document.getElementById('in-pd-m').value || 0, 10) * 60) + parseInt(document.getElementById('in-pd-s').value || 0, 10);
+    if (dur <= 0) return banner('Invalid duration');
+
     hideModal(null, 'm-preset');
-    hideSpin();
+    await queueCommand(
+      editId !== null ? 'edit_preset' : 'add_preset',
+      editId !== null ? { index: editId, duration_sec: dur, label } : { duration_sec: dur, label },
+      'Waiting for controller...',
+      editId !== null ? 'Cycle updated' : 'Cycle added'
+    );
+    clearPresetForm();
+    editId = null;
   }
 
   async function delPreset(idx) {
-    if(!confirm('Delete cycle?')) return;
-    showSpin();
-    try {
-      await fetch(API_BASE + (isEsp ? `/presets/delete?i=${idx}` : '/api/presets/delete'), 
-        isEsp ? reqOpts('GET') : reqOpts('POST', { index: idx })
-      );
-      banner('Deleted');
-      await fetchPresets();
-    } catch(e) {}
-    hideSpin();
+    if (!confirm('Delete cycle?')) return;
+    await queueCommand('delete_preset', { index: idx }, 'Waiting for controller...', 'Cycle deleted');
   }
-
-  // History / Log
-  let histMode = 'graph';
-  let logsFetched = false;
-  let logHtmlCache = '';
-  let graphCache = {};
 
   function setHistTab(mode) {
     histMode = mode;
-    document.getElementById('btn-tab-graph').classList.toggle('active', mode==='graph');
-    document.getElementById('btn-tab-log').classList.toggle('active', mode==='log');
-    document.getElementById('h-graph').style.display = mode==='graph' ? 'block' : 'none';
-    document.getElementById('h-log').style.display   = mode==='log' ? 'block' : 'none';
-    if(mode==='log') fetchLog();
+    document.getElementById('btn-tab-graph').classList.toggle('active', mode === 'graph');
+    document.getElementById('btn-tab-log').classList.toggle('active', mode === 'log');
+    document.getElementById('h-graph').style.display = mode === 'graph' ? 'block' : 'none';
+    document.getElementById('h-log').style.display = mode === 'log' ? 'block' : 'none';
+    if (mode === 'log') fetchLog();
   }
 
   function renderHist() {
-    if (!logsFetched) { fetchLog(); logsFetched = true; return; }
+    if (!logsFetched) {
+      fetchLog();
+      logsFetched = true;
+      return;
+    }
+
     if (histMode === 'graph') {
       const dates = Object.keys(graphCache).sort().slice(-7);
       if (!dates.length) {
         document.getElementById('chart-wrap').innerHTML = '<div style="width:100%;text-align:center;color:var(--sub);align-self:center;">No cycles found in logs.</div>';
         return;
       }
-      const maxD = Math.max(...dates.map(d => graphCache[d]));
-      let html = '';
-      dates.forEach(d => {
-        const MathPct = Math.max(2, (graphCache[d]/maxD)*100);
-        html += `<div style="flex:1; display:flex; flex-direction:column; align-items:center; height:100%;">
-          <div style="flex:1; display:flex; align-items:flex-end; width:100%; justify-content:center; padding-bottom:8px;">
-            <div style="width:70%; min-height:4px; max-height:100%; height:${MathPct}%; background:var(--text); border-radius:4px 4px 0 0;"></div>
+      const maxTotal = Math.max(...dates.map(d => graphCache[d]));
+      document.getElementById('chart-wrap').innerHTML = dates.map(d => {
+        const pct = Math.max(2, (graphCache[d] / maxTotal) * 100);
+        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;height:100%;">
+          <div style="flex:1;display:flex;align-items:flex-end;width:100%;justify-content:center;padding-bottom:8px;">
+            <div style="width:70%;min-height:4px;max-height:100%;height:${pct}%;background:var(--text);border-radius:4px 4px 0 0;"></div>
           </div>
-          <div style="font-size:10px; color:var(--sub);">${d.substring(5)}</div>
-          <div style="font-size:10px; font-weight:600;">${Math.round(graphCache[d]/60)}m</div>
+          <div style="font-size:10px;color:var(--sub);">${d.substring(5)}</div>
+          <div style="font-size:10px;font-weight:600;">${Math.round(graphCache[d] / 60)}m</div>
         </div>`;
-      });
-      document.getElementById('chart-wrap').innerHTML = html;
+      }).join('');
     } else {
       document.getElementById('log-wrap').innerHTML = logHtmlCache;
     }
@@ -1045,86 +1001,95 @@
 
   async function downloadLog() {
     try {
-      const r = await fetch(API_BASE + (isEsp ? '/log.txt' : '/api/log'), reqOpts('GET'));
-      if(r.status === 401) return showLogin();
+      const r = await fetch(API_BASE + '/api/log', reqOpts('GET'));
+      if (r.status === 401) return showLogin();
       const txt = await r.text();
       const blob = new Blob([txt], { type: 'text/plain' });
-      const url = window.URL.createObjectURL(blob);
+      const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = 'irrigation_log.txt';
       a.click();
-      window.URL.revokeObjectURL(url);
-    } catch(e) { banner('Error downloading logs'); }
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      banner('Error downloading logs');
+    }
   }
 
   async function fetchLog() {
     try {
-      const r = await fetch(API_BASE + (isEsp ? '/log.txt' : '/api/log'), reqOpts('GET'));
-      if(r.status === 401) return showLogin();
+      const r = await fetch(API_BASE + '/api/log', reqOpts('GET'));
+      if (r.status === 401) return showLogin();
       const txt = await r.text();
-      const lines = txt.split('\n').filter(l => l.trim().length > 0);
-      
+      const lines = txt.split('\n').filter(line => line.trim().length > 0);
       graphCache = {};
       let html = '';
-      let curDate = '';
-      
-      lines.slice().reverse().forEach(l => {
-        const p1 = l.indexOf('|');
-        const p2 = l.indexOf('|', p1+1);
-        if(p1 < 0) return; 
-        
-        const ts = l.substring(0, p1).trim();
+      let currentDate = '';
+
+      lines.slice().reverse().forEach(line => {
+        const p1 = line.indexOf('|');
+        const p2 = line.indexOf('|', p1 + 1);
+        if (p1 < 0) return;
+
+        const ts = line.substring(0, p1).trim();
         const date = ts.substring(0, 10);
         const time = ts.substring(11, 16);
-        const evt = p2 > 0 ? l.substring(p1+1, p2).trim() : l.substring(p1+1).trim();
-        const msg = p2 > 0 ? l.substring(p2+1).trim() : '';
-        
-        // Parse graph logic
-        if (evt === 'CYCLE_START' && msg.indexOf('duration=') >= 0) {
-           let di = msg.indexOf('duration=');
-           let ds = msg.substring(di + 9);
-           ds = ds.replace('s', '').trim();
-           let sp = ds.indexOf(' ');
-           if (sp > 0) ds = ds.substring(0, sp);
-           let dsec = parseInt(ds) || 0;
-           if (!graphCache[date]) graphCache[date] = 0;
-           graphCache[date] += dsec;
+        const evt = p2 > 0 ? line.substring(p1 + 1, p2).trim() : line.substring(p1 + 1).trim();
+        const msg = p2 > 0 ? line.substring(p2 + 1).trim() : '';
+
+        if (evt === 'CYCLE_START' && msg.includes('duration=')) {
+          let dur = msg.substring(msg.indexOf('duration=') + 9).replace('s', '').trim();
+          const splitAt = dur.indexOf(' ');
+          if (splitAt > 0) dur = dur.substring(0, splitAt);
+          graphCache[date] = (graphCache[date] || 0) + (parseInt(dur, 10) || 0);
         }
 
-        let read = '';
-        if(evt === 'BOOT') read = 'System started';
-        else if(evt === 'CYCLE_START') read = 'Started irrigation';
-        else if(evt === 'CYCLE_END') read = 'Finished irrigation';
-        else if(evt === 'PRESET_ADDED') read = `Added cycle`;
-        else if(evt === 'PRESET_DELETED') read = `Deleted cycle`;
-        else read = evt + ' ' + msg;
+        let readable = '';
+        if (evt === 'BOOT') readable = 'System started';
+        else if (evt === 'CYCLE_START') readable = 'Started irrigation';
+        else if (evt === 'CYCLE_END') readable = 'Finished irrigation';
+        else if (evt === 'PRESET_ADDED') readable = 'Added cycle';
+        else if (evt === 'PRESET_EDITED') readable = 'Edited cycle';
+        else if (evt === 'PRESET_DELETED') readable = 'Deleted cycle';
+        else if (evt === 'SCHEDULE_ADDED') readable = 'Added schedule';
+        else if (evt === 'SCHEDULE_EDITED') readable = 'Edited schedule';
+        else if (evt === 'SCHEDULE_DELETED') readable = 'Deleted schedule';
+        else if (evt === 'LOG_CLEARED') readable = 'Cleared log';
+        else readable = [evt, msg].filter(Boolean).join(' ');
 
-        if (date !== curDate) {
-          if (curDate !== '') html += `</div>`;
+        if (date !== currentDate) {
+          if (currentDate) html += '</div>';
           html += `<div class="log-group"><div class="log-date">${date}</div>`;
-          curDate = date;
+          currentDate = date;
         }
-        
-        html += `<div class="log-entry"><b style="color:var(--text);width:45px;display:inline-block">${time}</b> ${read}</div>`;
+
+        html += `<div class="log-entry"><b style="color:var(--text);width:45px;display:inline-block">${time}</b> ${escapeHtml(readable)}</div>`;
       });
-      
-      if(html !== '') html += '</div>'; else html='<div style="padding-top:20px;">No logs found.</div>';
-      logHtmlCache = html;
-      
+
+      logHtmlCache = html ? html + '</div>' : '<div style="padding-top:20px;">No logs found.</div>';
+      logsFetched = true;
       renderHist();
-    } catch(e) {
+    } catch (e) {
       document.getElementById('chart-wrap').innerHTML = 'Failed to load logs.';
       document.getElementById('log-wrap').innerHTML = 'Failed to load logs.';
     }
   }
 
-  // Init
-  fetchPresets();
-  loopState();
-  
-  // Initialize nav pill on load
-  setTimeout(() => nav('home'), 100);
+  async function init() {
+    setTimeout(() => nav('home'), 100);
+    if (authToken) {
+      const ok = await fetchStateLoopOnce();
+      if (ok) {
+        document.getElementById('login-overlay').classList.add('hidden');
+        await fetchLog();
+      }
+    } else {
+      showLogin();
+    }
+    loopState();
+  }
+
+  init();
 </script>
 
 </body>

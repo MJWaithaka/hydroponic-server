@@ -2,15 +2,21 @@ const express = require('express');
 const cors = require('cors');
 const Database = require('better-sqlite3');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const PORT = 3001;
 const API_KEY = process.env.API_KEY || 'changeme';
+const DATA_DIR = process.env.DATA_DIR || '/data';
+const DB_PATH = path.join(DATA_DIR, 'irrigation.db');
+const LOG_PATH = path.join(DATA_DIR, 'log.txt');
 
 app.use(cors());
 app.use(express.json());
 
-const db = new Database('/data/irrigation.db');
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+
+const db = new Database(DB_PATH);
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS status (
@@ -53,6 +59,8 @@ db.exec(`
   );
 `);
 
+try { db.exec("ALTER TABLE status ADD COLUMN presets_json TEXT DEFAULT '[]'"); } catch(e){}
+
 // ── AUTH MIDDLEWARE ───────────────────────────────────────────────────────────
 function auth(req, res, next) {
   const key = req.headers['x-api-key'] || req.query.key;
@@ -65,9 +73,10 @@ function auth(req, res, next) {
 // ESP32 posts its full state here every 10 seconds
 app.post('/api/status', auth, (req, res) => {
   const d = req.body;
+  const presets = d.presets ? JSON.stringify(d.presets) : '[]';
   db.prepare(`UPDATE status SET
     relay_on=?, relay_remaining=?, time_synced=?, sd_ok=?,
-    wifi_ok=?, schedule_count=?, last_event=?, current_time=?, updated_at=?
+    wifi_ok=?, schedule_count=?, last_event=?, current_time=?, updated_at=?, presets_json=?
     WHERE id=1`).run(
     d.relay_on ? 1 : 0,
     d.relay_remaining || 0,
@@ -77,7 +86,8 @@ app.post('/api/status', auth, (req, res) => {
     d.schedule_count || 0,
     d.last_event || '',
     d.current_time || '',
-    new Date().toISOString()
+    new Date().toISOString(),
+    presets
   );
   res.json({ ok: true });
 });
@@ -139,12 +149,13 @@ app.get('/api/state', bAuth, (req, res) => {
   const status = db.prepare('SELECT * FROM status WHERE id=1').get();
   const schedules = db.prepare('SELECT * FROM schedules').all();
   const cycles = db.prepare('SELECT * FROM cycles ORDER BY id DESC LIMIT 500').all();
-  res.json({ status, schedules, cycles });
+  const presets = JSON.parse((status && status.presets_json) ? status.presets_json : '[]');
+  res.json({ status, schedules, cycles, presets });
 });
 
 app.post('/api/command', bAuth, (req, res) => {
   const { command, params } = req.body;
-  const allowed = ['trigger', 'stop', 'resync', 'add_schedule', 'delete_schedule', 'toggle_schedule', 'edit_schedule', 'clear_log'];
+  const allowed = ['trigger', 'stop', 'resync', 'add_schedule', 'delete_schedule', 'toggle_schedule', 'edit_schedule', 'add_preset', 'edit_preset', 'delete_preset', 'clear_log'];
   if (!allowed.includes(command)) return res.status(400).json({ error: 'Unknown command' });
   db.prepare('INSERT INTO commands (command, params, done, created_at) VALUES (?,?,0,?)')
     .run(command, JSON.stringify(params || {}), new Date().toISOString());
@@ -154,54 +165,18 @@ app.post('/api/command', bAuth, (req, res) => {
 // Serve frontend WITHOUT auth middleware so Login page can load natively:
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-// ── ESP PROXY ROUTES ──────────────────────────────────────────────────────────
-// These forward requests to the ESP32's SD-backed endpoints.
-// Falls back gracefully when ESP is offline.
-const ESP_BASE = 'http://172.23.6.200';
-const espFetch = (url, opts = {}) =>
-  fetch(url, { signal: AbortSignal.timeout(5000), ...opts });
-
-app.get('/api/presets', bAuth, async (req, res) => {
+app.get('/api/log', bAuth, (req, res) => {
   try {
-    const r = await espFetch(`${ESP_BASE}/presets`);
-    res.json(await r.json());
-  } catch(e) { res.json({ presets: [], offline: true }); }
+    const txt = fs.readFileSync(LOG_PATH, 'utf8');
+    res.type('text/plain').send(txt);
+  } catch(e) { res.status(200).send(''); }
 });
 
-app.post('/api/presets/add', bAuth, async (req, res) => {
-  // Try extracting duration_sec or dur from JSON payload
-  const dur = req.body.duration_sec || req.body.dur || 0;
-  const label = req.body.label || '';
+app.post('/api/upload-log', auth, express.text({ type: '*/*', limit: '5mb' }), (req, res) => {
   try {
-    await espFetch(`${ESP_BASE}/presets/add`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `dur=${encodeURIComponent(dur)}&label=${encodeURIComponent(label)}`
-    });
+    fs.writeFileSync(LOG_PATH, req.body || '', 'utf8');
     res.json({ ok: true });
-  } catch(e) { res.status(503).json({ error: 'ESP offline' }); }
-});
-
-app.post('/api/presets/delete', bAuth, async (req, res) => {
-  const { index } = req.body;
-  try {
-    await espFetch(`${ESP_BASE}/presets/delete?i=${index}`);
-    res.json({ ok: true });
-  } catch(e) { res.status(503).json({ error: 'ESP offline' }); }
-});
-
-app.get('/api/log', bAuth, async (req, res) => {
-  try {
-    const r = await espFetch(`${ESP_BASE}/log.txt`);
-    res.type('text/plain').send(await r.text());
-  } catch(e) { res.status(503).send(''); }
-});
-
-app.post('/api/clearlog', bAuth, async (req, res) => {
-  try {
-    await espFetch(`${ESP_BASE}/clearlog`);
-    res.json({ ok: true });
-  } catch(e) { res.status(503).json({ error: 'ESP offline' }); }
+  } catch(e) { res.status(500).json({error: e.message}); }
 });
 
 // ── CYCLE SYNC ────────────────────────────────────────────────────────────────
