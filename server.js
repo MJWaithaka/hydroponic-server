@@ -124,14 +124,22 @@ app.post('/api/sync-cycles', auth, (req, res) => {
 
 // ── DASHBOARD ROUTES ──────────────────────────────────────────────────────────
 
-app.get('/api/state', (req, res) => {
+function bAuth(req, res, next) {
+  const b64auth = (req.headers.authorization || '').split(' ')[1] || '';
+  const [l, p] = Buffer.from(b64auth, 'base64').toString().split(':');
+  if (l === 'admin' && p === (process.env.ADMIN_PASS || 'admin')) return next();
+  res.set('WWW-Authenticate', 'Basic realm="Farm"');
+  res.status(401).send('Auth required.');
+}
+
+app.get('/api/state', bAuth, (req, res) => {
   const status = db.prepare('SELECT * FROM status WHERE id=1').get();
   const schedules = db.prepare('SELECT * FROM schedules').all();
   const cycles = db.prepare('SELECT * FROM cycles ORDER BY id DESC LIMIT 500').all();
   res.json({ status, schedules, cycles });
 });
 
-app.post('/api/command', (req, res) => {
+app.post('/api/command', bAuth, (req, res) => {
   const { command, params } = req.body;
   const allowed = ['trigger', 'stop', 'resync', 'add_schedule', 'delete_schedule', 'toggle_schedule'];
   if (!allowed.includes(command)) return res.status(400).json({ error: 'Unknown command' });
@@ -140,7 +148,7 @@ app.post('/api/command', (req, res) => {
   res.json({ ok: true });
 });
 
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.get('/', bAuth, (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 // ── ESP PROXY ROUTES ──────────────────────────────────────────────────────────
 // These forward requests to the ESP32's SD-backed endpoints.
@@ -149,26 +157,28 @@ const ESP_BASE = 'http://172.23.6.200';
 const espFetch = (url, opts = {}) =>
   fetch(url, { signal: AbortSignal.timeout(5000), ...opts });
 
-app.get('/api/presets', async (req, res) => {
+app.get('/api/presets', bAuth, async (req, res) => {
   try {
     const r = await espFetch(`${ESP_BASE}/presets`);
     res.json(await r.json());
   } catch(e) { res.json({ presets: [], offline: true }); }
 });
 
-app.post('/api/presets/add', async (req, res) => {
-  const { duration_sec, label } = req.body;
+app.post('/api/presets/add', bAuth, async (req, res) => {
+  // Try extracting duration_sec or dur from JSON payload
+  const dur = req.body.duration_sec || req.body.dur || 0;
+  const label = req.body.label || '';
   try {
     await espFetch(`${ESP_BASE}/presets/add`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `dur=${encodeURIComponent(duration_sec)}&label=${encodeURIComponent(label || '')}`
+      body: `dur=${encodeURIComponent(dur)}&label=${encodeURIComponent(label)}`
     });
     res.json({ ok: true });
   } catch(e) { res.status(503).json({ error: 'ESP offline' }); }
 });
 
-app.post('/api/presets/delete', async (req, res) => {
+app.post('/api/presets/delete', bAuth, async (req, res) => {
   const { index } = req.body;
   try {
     await espFetch(`${ESP_BASE}/presets/delete?i=${index}`);
@@ -176,7 +186,7 @@ app.post('/api/presets/delete', async (req, res) => {
   } catch(e) { res.status(503).json({ error: 'ESP offline' }); }
 });
 
-app.get('/api/log', async (req, res) => {
+app.get('/api/log', bAuth, async (req, res) => {
   try {
     const r = await espFetch(`${ESP_BASE}/log.txt`);
     res.type('text/plain').send(await r.text());

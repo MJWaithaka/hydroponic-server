@@ -33,10 +33,9 @@
       color: var(--text);
       max-width: 520px;
       margin: 0 auto;
-      height: 100vh;
+      min-height: 100vh;
       display: flex;
-      flex-direction: column;
-      overflow: hidden; 
+      flex-direction: column; 
     }
     .material-symbols-outlined {
       font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
@@ -374,16 +373,30 @@
       visibility: hidden;
       transition: all 0.3s cubic-bezier(0.1, 0.9, 0.2, 1);
     }
-    .banner.show { 
-      transform: translate(-50%, 0) scale(1);
-      opacity: 1;
-      visibility: visible;
+    /* ── Global Spinner ── */
+    #global-spinner {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
     }
-
+    #global-spinner.show { display: flex; }
+    .spinner-circle {
+      width: 44px; height: 44px;
+      border: 4px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
 
   </style>
 </head>
 <body>
+  
+  <div id="global-spinner"><div class="spinner-circle"></div></div>
 
   <!-- Header -->
   <div class="header">
@@ -520,8 +533,11 @@
         </div>
       </div>
       <div class="input-grp">
-        <label>Duration (minutes)</label>
-        <input type="number" id="in-sd" placeholder="15" min="1" max="120">
+        <label>Duration (Minutes : Seconds)</label>
+        <div class="input-row">
+          <input type="number" id="in-sd-m" placeholder="15" min="0">
+          <input type="number" id="in-sd-s" placeholder="00" min="0" max="59">
+        </div>
       </div>
       <div class="modal-actions">
         <div class="modal-fab cancel" onclick="hideModal(null, 'm-sched')">
@@ -543,8 +559,11 @@
         <input type="text" id="in-pl" placeholder="e.g. 20 min flush">
       </div>
       <div class="input-grp">
-        <label>Duration (minutes)</label>
-        <input type="number" id="in-pd" placeholder="20" min="1" max="600">
+        <label>Duration (Minutes : Seconds)</label>
+        <div class="input-row">
+          <input type="number" id="in-pd-m" placeholder="20" min="0">
+          <input type="number" id="in-pd-s" placeholder="00" min="0" max="59">
+        </div>
       </div>
       <div class="modal-actions">
         <div class="modal-fab cancel" onclick="hideModal(null, 'm-preset')">
@@ -566,6 +585,8 @@
   let globalState = { status: {}, schedules: [], cycles: [] };
   let globalPresets = [];
   
+  let editId = null;
+
   // Navigation
   function nav(page) {
     document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
@@ -586,10 +607,29 @@
   }
 
   // Modals
-  function showModal(id) { document.getElementById(id).classList.add('show'); }
+  function showModal(id) { editId = null; document.getElementById(id).classList.add('show'); }
   function hideModal(e, id) { 
     if(e && e.target !== document.getElementById(id)) return;
     document.getElementById(id).classList.remove('show'); 
+  }
+
+  function editSched(idx) {
+    const s = globalState.schedules[idx];
+    editId = idx;
+    document.getElementById('in-sh').value = s.hour;
+    document.getElementById('in-sm').value = s.minute;
+    document.getElementById('in-sd-m').value = Math.floor(s.duration_sec/60);
+    document.getElementById('in-sd-s').value = s.duration_sec%60;
+    document.getElementById('m-sched').classList.add('show');
+  }
+
+  function editPreset(idx) {
+    const p = globalPresets[idx];
+    editId = idx;
+    document.getElementById('in-pl').value = p.label;
+    document.getElementById('in-pd-m').value = Math.floor(p.duration_sec/60);
+    document.getElementById('in-pd-s').value = p.duration_sec%60;
+    document.getElementById('m-preset').classList.add('show');
   }
 
   // Banner Notice
@@ -699,10 +739,13 @@
             <div class="list-time">${fmtTime(s.hour, s.minute)}</div>
             <div class="list-dur">${fmtDurSec(s.duration_sec)}</div>
           </div>
-          <div style="display:flex;align-items:center;gap:16px;">
+          <div style="display:flex;align-items:center;gap:12px;">
             <div class="toggle ${s.enabled ? 'on' : ''}" onclick="apiCall('toggle_schedule', {index:${idx}}, 'Updating...', 'Saved')">
               <div class="toggle-knob"></div>
             </div>
+            <button class="icon-btn" style="background:var(--card-even);" onclick="editSched(${idx})">
+              <span class="material-symbols-outlined">edit</span>
+            </button>
             <button class="icon-btn danger" onclick="if(confirm('Delete schedule?')) apiCall('delete_schedule', {index:${idx}}, 'Deleting...', 'Deleted')">
               <span class="material-symbols-outlined">delete</span>
             </button>
@@ -721,7 +764,10 @@
             <div class="preset-title">${fmtDurSec(p.duration_sec)}</div>
             <div class="preset-sub">${p.label || 'Cycle'}</div>
           </div>
-          <div style="display:flex; align-items:center; gap:16px;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <button class="icon-btn" style="background:var(--card-even);" onclick="editPreset(${idx})">
+              <span class="material-symbols-outlined">edit</span>
+            </button>
             <button class="icon-btn danger" onclick="delPreset(${idx})">
               <span class="material-symbols-outlined">delete</span>
             </button>
@@ -754,19 +800,30 @@
     } catch(e) {}
   }
 
-  async function apiCall(cmd, d = {}, waitMsg = 'Saving...', doneMsg = 'Saved') {
-    banner(waitMsg, 20000); // keep up while waiting
+  function showSpin() { document.getElementById('global-spinner').classList.add('show'); }
+  function hideSpin() { document.getElementById('global-spinner').classList.remove('show'); }
+
+  async function apiCallRaw(cmd, d) {
     try {
       await fetch(API_BASE + '/api/command', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ command: cmd, params: d })
       });
+    } catch(e) {}
+  }
+
+  async function apiCall(cmd, d = {}, waitMsg = 'Saving...', doneMsg = 'Saved') {
+    if (waitMsg) banner(waitMsg, 20000); 
+    showSpin();
+    try {
+      await apiCallRaw(cmd, d);
       banner(doneMsg);
-      setTimeout(() => fetchStateLoopOnce(), 1500); 
+      await fetchStateLoopOnce();
     } catch(e) {
       banner('Failed to connect', 4000);
     }
+    hideSpin();
   }
 
   async function fetchStateLoopOnce() {
@@ -777,48 +834,87 @@
     } catch(e){}
   }
 
-  // Add Handlers
-  function submitSched() {
-    const h = parseInt(document.getElementById('in-sh').value);
-    const m = parseInt(document.getElementById('in-sm').value);
-    const d = parseInt(document.getElementById('in-sd').value);
-    if(isNaN(h)||isNaN(m)||isNaN(d)) return banner('Invalid inputs');
-    apiCall('add_schedule', { hour: h, minute: m, duration_sec: d*60 }, 'Saving...', 'Cycle added');
+  // Add/Edit Handlers
+  async function submitSched() {
+    const h = parseInt(document.getElementById('in-sh').value || 0);
+    const m = parseInt(document.getElementById('in-sm').value || 0);
+    const dm = parseInt(document.getElementById('in-sd-m').value || 0);
+    const ds = parseInt(document.getElementById('in-sd-s').value || 0);
+    const dur = (dm * 60) + ds;
+    if(dur <= 0) return banner('Invalid duration');
+    
+    showSpin();
+    if (editId !== null) await apiCallRaw('delete_schedule', {index: editId});
+    await apiCallRaw('add_schedule', { hour: h, minute: m, duration_sec: dur });
+    await fetchStateLoopOnce();
+    hideSpin();
+    
+    banner(editId !== null ? 'Cycle updated' : 'Cycle added');
     hideModal(null, 'm-sched');
-    document.getElementById('in-sh').value=''; document.getElementById('in-sm').value=''; document.getElementById('in-sd').value='';
+    document.getElementById('in-sh').value=''; document.getElementById('in-sm').value=''; 
+    document.getElementById('in-sd-m').value=''; document.getElementById('in-sd-s').value='';
   }
 
   async function submitPreset() {
     const lbl = document.getElementById('in-pl').value;
-    const durM = parseInt(document.getElementById('in-pd').value);
-    if(isNaN(durM)) return banner('Invalid duration');
+    const dm = parseInt(document.getElementById('in-pd-m').value || 0);
+    const ds = parseInt(document.getElementById('in-pd-s').value || 0);
+    const dur = (dm * 60) + ds;
+    if(dur <= 0) return banner('Invalid duration');
+    
+    showSpin();
     try {
-      await fetch(API_BASE + (isEsp ? '/presets/add' : '/api/presets/add'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `dur=${durM*60}&label=${encodeURIComponent(lbl)}`
-      });
-      banner('Cycle added');
+      if (editId !== null) {
+        await fetch(API_BASE + (isEsp ? `/presets/delete?i=${editId}` : '/api/presets/delete'), {
+          method: isEsp ? 'GET':'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: isEsp ? null : JSON.stringify({ index: editId })
+        });
+      }
+      
+      if (isEsp) {
+        await fetch(API_BASE + '/presets/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `dur=${dur}&label=${encodeURIComponent(lbl)}`
+        });
+      } else {
+        await fetch(API_BASE + '/api/presets/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ duration_sec: dur, label: lbl })
+        });
+      }
+      banner(editId !== null ? 'Cycle updated' : 'Cycle added');
       hideModal(null, 'm-preset');
-      document.getElementById('in-pl').value=''; document.getElementById('in-pd').value='';
-      fetchPresets();
-    } catch(e) { banner('Error adding'); }
+      document.getElementById('in-pl').value=''; 
+      document.getElementById('in-pd-m').value=''; document.getElementById('in-pd-s').value='';
+      await fetchPresets();
+    } catch(e) { banner('Error saving'); }
+    hideSpin();
   }
 
   async function delPreset(idx) {
     if(!confirm('Delete cycle?')) return;
+    showSpin();
     try {
       await fetch(API_BASE + (isEsp ? `/presets/delete?i=${idx}` : '/api/presets/delete'), {
         method: isEsp ? 'GET':'POST',
         headers: { 'Content-Type': 'application/json' },
         body: isEsp ? null : JSON.stringify({ index: idx })
       });
-      fetchPresets();
+      banner('Deleted');
+      await fetchPresets();
     } catch(e) {}
+    hideSpin();
   }
 
   // History / Log
   let histMode = 'graph';
+  let logsFetched = false;
+  let logHtmlCache = '';
+  let graphCache = {};
+
   function setHistTab(mode) {
     histMode = mode;
     document.getElementById('btn-tab-graph').classList.toggle('active', mode==='graph');
@@ -829,31 +925,28 @@
   }
 
   function renderHist() {
-    if(histMode==='graph') {
-      const cycs = globalState.cycles || [];
-      const map = {};
-      cycs.forEach(c => {
-        if(!map[c.date]) map[c.date] = 0;
-        map[c.date] += Number(c.duration);
-      });
-      const dates = Object.keys(map).sort().slice(-7);
-      if(!dates.length) {
-        document.getElementById('chart-wrap').innerHTML = '<div style="width:100%;text-align:center;color:var(--sub);align-self:center;">No completed cycles to graph.</div>';
+    if (!logsFetched) { fetchLog(); logsFetched = true; return; }
+    if (histMode === 'graph') {
+      const dates = Object.keys(graphCache).sort().slice(-7);
+      if (!dates.length) {
+        document.getElementById('chart-wrap').innerHTML = '<div style="width:100%;text-align:center;color:var(--sub);align-self:center;">No cycles found in logs.</div>';
         return;
       }
-      const maxD = Math.max(...dates.map(d => map[d]));
+      const maxD = Math.max(...dates.map(d => graphCache[d]));
       let html = '';
       dates.forEach(d => {
-        const MathPct = Math.max(2, (map[d]/maxD)*100);
+        const MathPct = Math.max(2, (graphCache[d]/maxD)*100);
         html += `<div style="flex:1; display:flex; flex-direction:column; align-items:center; height:100%;">
           <div style="flex:1; display:flex; align-items:flex-end; width:100%; justify-content:center; padding-bottom:8px;">
             <div style="width:70%; min-height:4px; max-height:100%; height:${MathPct}%; background:var(--text); border-radius:4px 4px 0 0;"></div>
           </div>
           <div style="font-size:10px; color:var(--sub);">${d.substring(5)}</div>
-          <div style="font-size:10px; font-weight:600;">${Math.round(map[d]/60)}m</div>
+          <div style="font-size:10px; font-weight:600;">${Math.round(graphCache[d]/60)}m</div>
         </div>`;
       });
       document.getElementById('chart-wrap').innerHTML = html;
+    } else {
+      document.getElementById('log-wrap').innerHTML = logHtmlCache;
     }
   }
 
@@ -861,12 +954,13 @@
     try {
       const r = await fetch(API_BASE + (isEsp ? '/log.txt' : '/api/log'));
       const txt = await r.text();
-      const lines = txt.split('\n').filter(l => l.trim().length > 0).reverse(); 
+      const lines = txt.split('\n').filter(l => l.trim().length > 0);
       
+      graphCache = {};
       let html = '';
       let curDate = '';
       
-      lines.forEach(l => {
+      lines.slice().reverse().forEach(l => {
         const p1 = l.indexOf('|');
         const p2 = l.indexOf('|', p1+1);
         if(p1 < 0) return; 
@@ -874,10 +968,21 @@
         const ts = l.substring(0, p1).trim();
         const date = ts.substring(0, 10);
         const time = ts.substring(11, 16);
-        
         const evt = p2 > 0 ? l.substring(p1+1, p2).trim() : l.substring(p1+1).trim();
         const msg = p2 > 0 ? l.substring(p2+1).trim() : '';
         
+        // Parse graph logic
+        if (evt === 'CYCLE_START' && msg.indexOf('duration=') >= 0) {
+           let di = msg.indexOf('duration=');
+           let ds = msg.substring(di + 9);
+           ds = ds.replace('s', '').trim();
+           let sp = ds.indexOf(' ');
+           if (sp > 0) ds = ds.substring(0, sp);
+           let dsec = parseInt(ds) || 0;
+           if (!graphCache[date]) graphCache[date] = 0;
+           graphCache[date] += dsec;
+        }
+
         let read = '';
         if(evt === 'BOOT') read = 'System started';
         else if(evt === 'CYCLE_START') read = 'Started irrigation';
@@ -887,15 +992,20 @@
         else read = evt + ' ' + msg;
 
         if (date !== curDate) {
+          if (curDate !== '') html += `</div>`;
           html += `<div class="log-group"><div class="log-date">${date}</div>`;
           curDate = date;
         }
         
         html += `<div class="log-entry"><b style="color:var(--text);width:45px;display:inline-block">${time}</b> ${read}</div>`;
       });
-      if(!html) html='<div style="padding-top:20px;">No logs found.</div>';
-      document.getElementById('log-wrap').innerHTML = html;
+      
+      if(html !== '') html += '</div>'; else html='<div style="padding-top:20px;">No logs found.</div>';
+      logHtmlCache = html;
+      
+      renderHist();
     } catch(e) {
+      document.getElementById('chart-wrap').innerHTML = 'Failed to load logs.';
       document.getElementById('log-wrap').innerHTML = 'Failed to load logs.';
     }
   }
