@@ -35,13 +35,14 @@
       margin: 0 auto;
       min-height: 100vh;
       display: flex;
-      flex-direction: column; 
+      flex-direction: column;
+      padding-bottom: env(safe-area-inset-bottom);
     }
     .material-symbols-outlined {
       font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
     }
     
-    /* ── Header ── */
+    /* â”€â”€ Header â”€â”€ */
     .header {
       padding: 24px 20px 16px;
       display: flex;
@@ -67,10 +68,11 @@
     .content {
       flex: 1;
       overflow-y: auto;
-      padding: 0 20px 100px 20px; 
+      padding: 0 20px calc(132px + env(safe-area-inset-bottom)) 20px;
+      scroll-padding-top: 88px;
     }
     
-    /* ── Bottom Nav ── */
+    /* â”€â”€ Bottom Nav â”€â”€ */
     .nav {
       position: fixed;
       bottom: 0;
@@ -80,7 +82,8 @@
       max-width: 520px;
       background: var(--bg);
       display: flex;
-      padding-bottom: env(safe-area-inset-bottom);
+      padding-top: 6px;
+      padding-bottom: calc(env(safe-area-inset-bottom) + 10px);
       z-index: 100;
     }
     .nav-item {
@@ -109,18 +112,33 @@
     .nav-item.active .material-symbols-outlined { font-variation-settings: 'FILL' 1; }
     .nav-label { font-size: 11px; font-weight: 500; }
 
-    /* ── Pages ── */
+    /* â”€â”€ Pages â”€â”€ */
     .page { display: none; animation: fade .2s ease; }
     .page.active { display: block; }
     @keyframes fade { from{opacity:0;} to{opacity:1;} }
 
-    /* ── Ring (Home) ── */
+    /* â”€â”€ Ring (Home) â”€â”€ */
     .ring-container {
       position: relative;
       width: 100%;
       aspect-ratio: 1;
       max-height: 320px;
       margin: 20px auto;
+    }
+    .ring-hit {
+      cursor: pointer;
+      transition: stroke-width 0.2s ease, opacity 0.2s ease;
+    }
+    .ring-hit:hover,
+    .ring-hit.active {
+      stroke-width: 5;
+      opacity: 1;
+    }
+    .ring-hint {
+      text-align: center;
+      color: var(--sub);
+      font-size: 12px;
+      margin-top: -4px;
     }
     .central-time {
       position: absolute;
@@ -144,8 +162,28 @@
       border-radius: 20px;
       white-space: nowrap;
     }
+    .home-actions {
+      margin-top: 12px;
+      display: flex;
+      justify-content: center;
+    }
+    .inline-action {
+      border: none;
+      border-radius: 18px;
+      padding: 10px 16px;
+      background: rgba(255, 69, 58, 0.14);
+      color: var(--danger);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .inline-action.hidden { display: none; }
 
-    /* ── Cards / Stat Strip ── */
+    /* â”€â”€ Cards / Stat Strip â”€â”€ */
     .stat-strip {
       display: flex;
       gap: 12px;
@@ -173,7 +211,7 @@
       background: var(--card-even);
     }
 
-    /* ── Lists (Alternating) ── */
+    /* â”€â”€ Lists (Alternating) â”€â”€ */
     .list-item {
       border-radius: 24px;
       padding: 20px 24px;
@@ -216,11 +254,11 @@
     }
     .toggle.on .toggle-knob { transform: translateX(20px); background: #000; }
 
-    /* ── Presets ── */
+    /* â”€â”€ Presets â”€â”€ */
     .preset-title { font-size: 24px; font-weight: 400; }
     .preset-sub { font-size: 14px; color: var(--sub); margin-top:2px; }
 
-    /* ── Action Buttons (Icon only) ── */
+    /* â”€â”€ Action Buttons (Icon only) â”€â”€ */
     .icon-btn {
       width: 44px;
       height: 44px;
@@ -237,7 +275,7 @@
     .icon-btn.danger { background: rgba(255,69,58,0.15); color: var(--danger); }
     .icon-btn .material-symbols-outlined { font-size: 20px; }
 
-    /* ── Fab ── */
+    /* â”€â”€ Fab â”€â”€ */
     .fab {
       position: fixed;
       bottom: 84px;
@@ -256,7 +294,7 @@
     }
     .fab .material-symbols-outlined { font-size: 32px; font-variation-settings: 'wght' 300; }
 
-    /* ── Emergency Stop ── */
+    /* â”€â”€ Emergency Stop â”€â”€ */
     .e-stop {
       border-radius: 24px;
       padding: 18px;
@@ -273,7 +311,7 @@
       gap: 8px;
     }
 
-    /* ── Modals ── */
+    /* â”€â”€ Modals â”€â”€ */
     .modal-overlay {
       position: fixed; top: 0; left: 0; right: 0; bottom: 0;
       background: rgba(0,0,0,0.8);
@@ -329,8 +367,17 @@
     .modal-fab.save { background: var(--accent); color: #000; }
     .modal-fab .material-symbols-outlined { font-size: 28px; }
 
-    /* ── History Subnav ── */
+    /* â”€â”€ History Subnav â”€â”€ */
     .subnav { display: flex; gap: 8px; margin-bottom: 24px; }
+    .subnav.sticky {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      padding: 8px 0 16px;
+      margin-bottom: 12px;
+      background: linear-gradient(180deg, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.82) 76%, rgba(0,0,0,0) 100%);
+      backdrop-filter: blur(10px);
+    }
     .sub-pill {
       padding: 10px 20px;
       border-radius: 24px;
@@ -341,8 +388,61 @@
       cursor: pointer;
     }
     .sub-pill.active { background: var(--text); color: #000; }
+    .sub-pill.danger {
+      color: var(--danger);
+      background: rgba(255, 69, 58, 0.1);
+    }
 
-    /* ── Log ── */
+    .graph-shell {
+      background: var(--card-odd);
+      border-radius: 24px;
+      padding: 18px;
+    }
+    .graph-shell.landscape-month {
+      min-height: 240px;
+    }
+    .chart-wrap {
+      min-height: 240px;
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+      overflow-x: auto;
+    }
+    .bar-col {
+      flex: 1;
+      min-width: 28px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100%;
+    }
+    .graph-bar {
+      width: 100%;
+      border-radius: 10px 10px 4px 4px;
+      background: linear-gradient(180deg, #ffffff 0%, #cfcfd2 100%);
+      min-height: 6px;
+      cursor: pointer;
+      border: none;
+    }
+    .graph-bar-label {
+      margin-top: 10px;
+      font-size: 10px;
+      color: var(--sub);
+      text-align: center;
+      line-height: 1.2;
+      white-space: pre-line;
+    }
+    .graph-empty {
+      width: 100%;
+      min-height: 180px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--sub);
+      text-align: center;
+    }
+
+    /* â”€â”€ Log â”€â”€ */
     .log-group { margin-bottom: 24px; }
     .log-date { font-size: 12px; color: var(--sub); font-weight: 600; text-transform: uppercase; margin-bottom: 12px; padding-left:4px; }
     .log-entry { 
@@ -350,12 +450,72 @@
       border-radius: 16px;
       padding: 14px 16px;
       margin-bottom: 8px;
-      display: flex; gap: 12px;
+      display: flex;
+      gap: 12px;
       font-size: 14px;
     }
-    #log-wrap .log-entry:nth-child(even) { background: var(--card-even); }
+    .log-entry:nth-child(even) { background: var(--card-even); }
+    .log-time {
+      width: 70px;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+      flex-shrink: 0;
+    }
+    .log-main {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+    .log-title {
+      color: var(--text);
+      font-weight: 500;
+    }
+    .log-meta {
+      color: var(--sub);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .details-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .detail-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      font-size: 14px;
+    }
+    .detail-row span:first-child {
+      color: var(--sub);
+    }
+    .hint-card {
+      margin-top: 14px;
+      border-radius: 20px;
+      padding: 16px 18px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.04) 100%);
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .hint-card.hidden { display: none; }
+    .hint-title {
+      font-size: 13px;
+      color: var(--sub);
+      margin-bottom: 6px;
+    }
+    .hint-value {
+      font-size: 20px;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+    .hint-copy {
+      color: var(--sub);
+      font-size: 13px;
+      line-height: 1.4;
+    }
     
-    /* ── Banner ── */
+    /* â”€â”€ Banner â”€â”€ */
     .banner {
       position: fixed;
       top: 20px; left: 50%; 
@@ -375,7 +535,7 @@
       transition: all 0.3s cubic-bezier(0.1, 0.9, 0.2, 1);
     }
     
-    /* ── Login Modal ── */
+    /* â”€â”€ Login Modal â”€â”€ */
     #login-overlay {
       position: fixed; top: 0; left: 0; right: 0; bottom: 0;
       background: var(--bg);
@@ -404,7 +564,7 @@
       border: none; cursor: pointer; margin-top: 16px;
     }
 
-    /* ── Global Spinner ── */
+    /* â”€â”€ Global Spinner â”€â”€ */
     #global-spinner {
       position: fixed; top: 0; left: 0; right: 0; bottom: 0;
       background: rgba(0,0,0,0.6);
@@ -422,6 +582,15 @@
       animation: spin 0.8s linear infinite;
     }
     @keyframes spin { 100% { transform: rotate(360deg); } }
+
+    @media (orientation: landscape) {
+      .graph-shell.landscape-month {
+        min-height: 200px;
+      }
+      .chart-wrap {
+        min-height: 200px;
+      }
+    }
 
   </style>
 </head>
@@ -465,6 +634,18 @@
         </svg>
         <div class="central-time" id="ring-time">--:--</div>
         <div class="sub-state" id="ring-state">Waiting...</div>
+      </div>
+      <div class="ring-hint">Tap a cycle on the ring for its exact time and duration.</div>
+      <div class="home-actions">
+        <button class="inline-action hidden" id="home-stop-btn" onclick="apiCall('stop', {}, 'Stopping cycle...', 'Cycle stopped')">
+          <span class="material-symbols-outlined" style="font-size:18px">pause_circle</span>
+          Stop Current Cycle
+        </button>
+      </div>
+      <div class="hint-card hidden" id="ring-detail-card">
+        <div class="hint-title" id="ring-detail-label">Selected Cycle</div>
+        <div class="hint-value" id="ring-detail-value">--</div>
+        <div class="hint-copy" id="ring-detail-copy"></div>
       </div>
 
       <div class="stat-strip">
@@ -513,20 +694,33 @@
 
     <!-- HISTORY PAGE -->
     <div class="page" id="p-hist">
-      <div class="subnav">
+      <div class="subnav sticky">
         <div class="sub-pill active" id="btn-tab-graph" onclick="setHistTab('graph')">Graph</div>
         <div class="sub-pill" id="btn-tab-log" onclick="setHistTab('log')">Plain Log</div>
         <div style="flex:1"></div>
+        <div class="sub-pill danger" onclick="if(confirm('Clear mirrored logs?')) apiCall('clear_log', {}, 'Clearing logs...', 'Logs cleared')">Clear</div>
         <a href="#" onclick="downloadLog(); return false;" style="text-decoration:none;">
           <div class="sub-pill" style="display:flex;align-items:center;gap:4px">
             <span class="material-symbols-outlined" style="font-size:16px">download</span>
           </div>
         </a>
       </div>
+      <div class="subnav" id="graph-range-tabs">
+        <div class="sub-pill active" id="btn-range-week" onclick="setGraphRange('week')">Week</div>
+        <div class="sub-pill" id="btn-range-month" onclick="setGraphRange('month')">Month</div>
+        <div class="sub-pill" id="btn-range-all" onclick="setGraphRange('all')">All Time</div>
+      </div>
 
       <div id="h-graph">
-        <div style="background:var(--card-odd); border-radius:24px; padding:20px; height:240px; display:flex; align-items:flex-end; gap:6px; overflow-x:auto;" id="chart-wrap">
-          <div style="width:100%;text-align:center;color:var(--sub);align-self:center;">Loading...</div>
+        <div class="graph-shell landscape-month" id="graph-shell">
+          <div class="chart-wrap" id="chart-wrap">
+            <div class="graph-empty">Loading...</div>
+          </div>
+        </div>
+        <div class="hint-card hidden" id="graph-detail-card">
+          <div class="hint-title" id="graph-detail-label">Day Summary</div>
+          <div class="hint-value" id="graph-detail-value">--</div>
+          <div class="hint-copy" id="graph-detail-copy"></div>
         </div>
       </div>
 
@@ -552,7 +746,7 @@
     </div>
     <div class="nav-item" onclick="nav('man')" id="n-man" style="z-index:1">
       <div class="nav-icon-wrap"><span class="material-symbols-outlined">timer</span></div>
-      <div class="nav-label">Manual</div>
+      <div class="nav-label">Triggers</div>
     </div>
     <div class="nav-item" onclick="nav('hist')" id="n-hist" style="z-index:1">
       <div class="nav-icon-wrap"><span class="material-symbols-outlined">history</span></div>
@@ -621,13 +815,17 @@
 
 <script>
   const API_BASE = '';
+  const PAGE_TITLES = { home: 'Home', sched: 'Schedule', man: 'Triggers', hist: 'History' };
   let globalState = { status: {}, schedules: [], cycles: [], presets: [] };
   let editId = null;
   let authToken = localStorage.getItem('farm_token') || '';
   let histMode = 'graph';
+  let graphRange = 'week';
   let logsFetched = false;
   let logHtmlCache = '';
   let graphCache = {};
+  let parsedLogEntries = [];
+  let selectedScheduleIndex = null;
   let bTmr;
 
   function reqOpts(method = 'GET', bodyObj = null) {
@@ -655,10 +853,16 @@
     return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
   }
 
-  function fmtDurSec(s) {
+  function fmtTimeWithSeconds(h, m, s) {
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
+
+  function fmtDurSec(totalSeconds) {
+    const s = Math.max(0, Math.round(Number(totalSeconds) || 0));
+    if (s < 60) return `${s}s`;
     const mins = Math.floor(s / 60);
     const secs = s % 60;
-    return mins + 'm' + (secs > 0 ? ' ' + secs + 's' : '');
+    return secs ? `${mins}m ${secs}s` : `${mins}m`;
   }
 
   function escapeHtml(value) {
@@ -674,10 +878,11 @@
     return (((hh * 3600) + (mm * 60)) / 86400) * 360 - 90;
   }
 
-  function getRingArc(hh, mm, durSec) {
-    const len = (durSec / 86400) * 565.48;
-    const angle = getStartAngle(hh, mm);
-    return `<circle cx="100" cy="100" r="90" fill="none" stroke="var(--sub)" stroke-width="3" transform="rotate(${angle} 100 100)" stroke-dasharray="${Math.max(1, len)} 600"></circle>`;
+  function getRingArc(schedule, idx) {
+    const len = (schedule.duration_sec / 86400) * 565.48;
+    const angle = getStartAngle(schedule.hour, schedule.minute);
+    const activeClass = selectedScheduleIndex === idx ? 'active' : '';
+    return `<circle class="ring-hit ${activeClass}" cx="100" cy="100" r="90" fill="none" stroke="var(--sub)" stroke-width="3" opacity="${selectedScheduleIndex === idx ? '1' : '0.86'}" transform="rotate(${angle} 100 100)" stroke-dasharray="${Math.max(1, len)} 600" onclick="showScheduleDetail(${idx})"></circle>`;
   }
 
   function nav(page) {
@@ -685,7 +890,7 @@
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     document.getElementById('p-' + page).classList.add('active');
     document.getElementById('n-' + page).classList.add('active');
-    document.getElementById('page-title').textContent = ({ home: 'Irrigation', sched: 'Schedule', man: 'Manual', hist: 'History' })[page];
+    document.getElementById('page-title').textContent = PAGE_TITLES[page];
 
     const item = document.getElementById('n-' + page);
     document.getElementById('nav-pill').style.transform = `translateX(${item.offsetLeft + (item.offsetWidth / 2) - 32}px)`;
@@ -836,18 +1041,128 @@
     return queueCommand(command, params, waitingMsg, successMsg);
   }
 
+  function formatReason(reason) {
+    if (!reason) return '';
+    if (reason.startsWith('schedule@')) return `Scheduled for ${reason.substring(9)}`;
+    if (reason === 'manual-web') return 'Triggered locally on controller';
+    if (reason === 'remote-web') return 'Triggered from dashboard';
+    return reason.replace(/_/g, ' ');
+  }
+
+  function parseCycleMetadata(msg) {
+    const durationMatch = msg.match(/duration=(\d+)/);
+    const reasonMatch = msg.match(/reason=([^|]+)/);
+    return {
+      durationSec: durationMatch ? parseInt(durationMatch[1], 10) : 0,
+      reason: reasonMatch ? reasonMatch[1].trim() : ''
+    };
+  }
+
+  function humanizeLogEntry(entry) {
+    const details = [];
+    let title = entry.evt;
+
+    if (entry.evt === 'BOOT') {
+      title = 'System started';
+    } else if (entry.evt === 'CYCLE_START') {
+      const meta = parseCycleMetadata(entry.msg);
+      title = 'Cycle started';
+      if (meta.durationSec) details.push(fmtDurSec(meta.durationSec));
+      if (meta.reason) details.push(formatReason(meta.reason));
+      entry.durationSec = meta.durationSec;
+      entry.reason = meta.reason;
+    } else if (entry.evt === 'CYCLE_END') {
+      title = 'Cycle finished';
+    } else if (entry.evt === 'CYCLE_STOPPED_MANUALLY') {
+      title = 'Cycle stopped early';
+    } else if (entry.evt === 'PRESET_ADDED') {
+      title = 'Trigger saved';
+      if (entry.msg) details.push(entry.msg);
+    } else if (entry.evt === 'PRESET_EDITED') {
+      title = 'Trigger updated';
+      if (entry.msg) details.push(entry.msg);
+    } else if (entry.evt === 'PRESET_DELETED') {
+      title = 'Trigger deleted';
+      if (entry.msg) details.push(entry.msg);
+    } else if (entry.evt === 'SCHEDULE_ADDED') {
+      title = 'Schedule saved';
+      if (entry.msg) details.push(entry.msg);
+    } else if (entry.evt === 'SCHEDULE_EDITED') {
+      title = 'Schedule updated';
+      if (entry.msg) details.push(entry.msg);
+    } else if (entry.evt === 'SCHEDULE_DELETED') {
+      title = 'Schedule deleted';
+      if (entry.msg) details.push(entry.msg);
+    } else if (entry.evt === 'SCHEDULE_TOGGLED') {
+      title = 'Schedule toggled';
+      if (entry.msg) details.push(entry.msg);
+    } else if (entry.evt === 'LOG_CLEARED') {
+      title = 'Logs cleared';
+    } else if (entry.msg) {
+      details.push(entry.msg);
+    }
+
+    return { title, meta: details.filter(Boolean).join(' • ') };
+  }
+
+  function parseLogLine(line) {
+    const p1 = line.indexOf('|');
+    const p2 = line.indexOf('|', p1 + 1);
+    if (p1 < 0) return null;
+    const ts = line.substring(0, p1).trim();
+    const evt = p2 > 0 ? line.substring(p1 + 1, p2).trim() : line.substring(p1 + 1).trim();
+    const msg = p2 > 0 ? line.substring(p2 + 1).trim() : '';
+    const entry = {
+      raw: line,
+      ts,
+      date: ts.substring(0, 10),
+      time: ts.substring(11, 19),
+      evt,
+      msg,
+      durationSec: 0,
+      reason: ''
+    };
+    Object.assign(entry, humanizeLogEntry(entry));
+    return entry;
+  }
+
+  function describeLatestEvent(raw) {
+    if (!raw) return 'No events.';
+    const parsed = parseLogLine(raw);
+    if (!parsed) return raw;
+    return parsed.meta ? `${parsed.title} • ${parsed.meta}` : parsed.title;
+  }
+
+  function showScheduleDetail(idx) {
+    const schedule = (globalState.schedules || [])[idx];
+    if (!schedule) return;
+    selectedScheduleIndex = idx;
+    document.getElementById('ring-detail-card').classList.remove('hidden');
+    document.getElementById('ring-detail-label').textContent = schedule.enabled ? 'Scheduled Cycle' : 'Disabled Cycle';
+    document.getElementById('ring-detail-value').textContent = `${fmtTime(schedule.hour, schedule.minute)} • ${fmtDurSec(schedule.duration_sec)}`;
+    document.getElementById('ring-detail-copy').textContent = schedule.fired_today ? 'Already fired today.' : 'Tap Schedule to edit or disable it.';
+    renderAll();
+  }
+
+  function updateStatusDot(st) {
+    const ageMs = Date.now() - (st.updated_at ? new Date(st.updated_at).getTime() : 0);
+    const online = !!(st.updated_at && ageMs < 120000);
+    const dot = document.getElementById('status-dot');
+    dot.className = 'status-dot ' + (online ? 'online' : '');
+    const seen = st.updated_at ? new Date(st.updated_at).toLocaleString() : 'No recent heartbeat';
+    dot.title = online ? `Controller online. Last heartbeat: ${seen}` : `Controller offline. Last heartbeat: ${seen}`;
+  }
+
   function renderAll() {
     const st = globalState.status || {};
     const schedules = globalState.schedules || [];
     const presets = globalState.presets || [];
 
-    const ageMs = Date.now() - (st.updated_at ? new Date(st.updated_at).getTime() : 0);
-    document.getElementById('status-dot').className = 'status-dot ' + ((st.updated_at && ageMs < 120000) ? 'online' : '');
-
+    updateStatusDot(st);
     document.getElementById('s-scheds').textContent = st.schedule_count || '0';
     document.getElementById('s-time').textContent = st.time_synced ? 'OK' : 'Sync';
     document.getElementById('s-sd').textContent = st.sd_ok ? 'OK' : 'Err';
-    document.getElementById('s-last').textContent = st.last_event || 'No events.';
+    document.getElementById('s-last').textContent = describeLatestEvent(st.last_event || '');
 
     const match = String(st.current_time || '').match(/(\d\d):(\d\d):(\d\d)/);
     if (match) {
@@ -865,18 +1180,20 @@
       document.getElementById('ring-dot').style.display = 'none';
     }
 
+    const stopBtn = document.getElementById('home-stop-btn');
     if (st.relay_on) {
-      const minsLeft = Math.max(1, Math.ceil((st.relay_remaining || 0) / 60));
-      document.getElementById('ring-state').textContent = `Running: ${minsLeft}m left`;
+      document.getElementById('ring-state').textContent = `Running: ${fmtDurSec(st.relay_remaining || 0)} left`;
       document.getElementById('ring-state').style.color = '#000';
       document.getElementById('ring-state').style.background = 'var(--text)';
+      stopBtn.classList.remove('hidden');
     } else {
       document.getElementById('ring-state').textContent = 'All quiet';
       document.getElementById('ring-state').style.color = 'var(--sub)';
       document.getElementById('ring-state').style.background = 'var(--card-even)';
+      stopBtn.classList.add('hidden');
     }
 
-    document.getElementById('ring-arcs').innerHTML = schedules.filter(s => s.enabled).map(s => getRingArc(s.hour, s.minute, s.duration_sec)).join('');
+    document.getElementById('ring-arcs').innerHTML = schedules.map((s, idx) => s.enabled ? getRingArc(s, idx) : '').join('');
 
     let scheduleHtml = schedules.map((s, idx) => `
       <div class="list-item ${!s.enabled ? 'disabled' : ''}">
@@ -919,7 +1236,7 @@
         </div>
       </div>
     `).join('');
-    if (!presetHtml) presetHtml = '<div style="text-align:center;color:var(--sub);margin-top:40px;">No manual cycles yet.</div>';
+    if (!presetHtml) presetHtml = '<div style="text-align:center;color:var(--sub);margin-top:40px;">No triggers yet.</div>';
     document.getElementById('man-list').innerHTML = presetHtml;
   }
 
@@ -950,15 +1267,15 @@
       editId !== null ? 'edit_preset' : 'add_preset',
       editId !== null ? { index: editId, duration_sec: dur, label } : { duration_sec: dur, label },
       'Waiting for controller...',
-      editId !== null ? 'Cycle updated' : 'Cycle added'
+      editId !== null ? 'Trigger updated' : 'Trigger added'
     );
     clearPresetForm();
     editId = null;
   }
 
   async function delPreset(idx) {
-    if (!confirm('Delete cycle?')) return;
-    await queueCommand('delete_preset', { index: idx }, 'Waiting for controller...', 'Cycle deleted');
+    if (!confirm('Delete trigger?')) return;
+    await queueCommand('delete_preset', { index: idx }, 'Waiting for controller...', 'Trigger deleted');
   }
 
   function setHistTab(mode) {
@@ -967,33 +1284,103 @@
     document.getElementById('btn-tab-log').classList.toggle('active', mode === 'log');
     document.getElementById('h-graph').style.display = mode === 'graph' ? 'block' : 'none';
     document.getElementById('h-log').style.display = mode === 'log' ? 'block' : 'none';
+    document.getElementById('graph-range-tabs').style.display = mode === 'graph' ? 'flex' : 'none';
     if (mode === 'log') fetchLog();
+    renderHist();
+  }
+
+  function setGraphRange(range) {
+    graphRange = range;
+    document.getElementById('btn-range-week').classList.toggle('active', range === 'week');
+    document.getElementById('btn-range-month').classList.toggle('active', range === 'month');
+    document.getElementById('btn-range-all').classList.toggle('active', range === 'all');
+    renderHist();
+  }
+
+  function getDataDates() {
+    const dates = Object.keys(graphCache).sort();
+    if (dates.length) return dates;
+    const today = new Date();
+    return [today.toISOString().substring(0, 10)];
+  }
+
+  function shiftDate(dateStr, days) {
+    const d = new Date(dateStr + 'T12:00:00');
+    d.setDate(d.getDate() + days);
+    return d.toISOString().substring(0, 10);
+  }
+
+  function labelForDate(dateStr, range) {
+    const d = new Date(dateStr + 'T12:00:00');
+    if (range === 'week') return d.toLocaleDateString([], { weekday: 'short' });
+    if (range === 'month') return String(d.getDate());
+    return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  function buildGraphBuckets() {
+    const dates = getDataDates();
+    const lastDate = dates[dates.length - 1];
+    if (graphRange === 'week') {
+      return Array.from({ length: 7 }, (_, offset) => {
+        const date = shiftDate(lastDate, offset - 6);
+        return { date, total: graphCache[date]?.total || 0, entries: graphCache[date]?.entries || [] };
+      });
+    }
+    if (graphRange === 'month') {
+      const last = new Date(lastDate + 'T12:00:00');
+      const year = last.getFullYear();
+      const month = last.getMonth();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      return Array.from({ length: daysInMonth }, (_, idx) => {
+        const date = new Date(year, month, idx + 1, 12, 0, 0).toISOString().substring(0, 10);
+        return { date, total: graphCache[date]?.total || 0, entries: graphCache[date]?.entries || [] };
+      });
+    }
+    return dates.map(date => ({ date, total: graphCache[date]?.total || 0, entries: graphCache[date]?.entries || [] }));
+  }
+
+  function showGraphDetail(date) {
+    const bucket = graphCache[date] || { total: 0, entries: [] };
+    const card = document.getElementById('graph-detail-card');
+    card.classList.remove('hidden');
+    document.getElementById('graph-detail-label').textContent = date;
+    document.getElementById('graph-detail-value').textContent = bucket.total ? `${fmtDurSec(bucket.total)} total` : 'No cycles';
+    if (!bucket.entries.length) {
+      document.getElementById('graph-detail-copy').innerHTML = 'No cycle starts were recorded for this day.';
+      return;
+    }
+    const rows = bucket.entries.map(entry => `<div class="detail-row"><span>${entry.time}</span><span>${fmtDurSec(entry.durationSec || 0)}${entry.reason ? ' • ' + escapeHtml(formatReason(entry.reason)) : ''}</span></div>`).join('');
+    document.getElementById('graph-detail-copy').innerHTML = `<div class="details-list">${rows}</div>`;
+  }
+
+  function renderGraph() {
+    const chart = document.getElementById('chart-wrap');
+    const shell = document.getElementById('graph-shell');
+    shell.classList.toggle('landscape-month', graphRange === 'month');
+    const buckets = buildGraphBuckets();
+    const maxTotal = Math.max(1, ...buckets.map(bucket => bucket.total));
+
+    if (!buckets.some(bucket => bucket.total > 0)) {
+      chart.innerHTML = '<div class="graph-empty">No cycles found in logs.</div>';
+      return;
+    }
+
+    chart.innerHTML = buckets.map(bucket => {
+      const pct = Math.max(bucket.total > 0 ? 10 : 4, (bucket.total / maxTotal) * 100);
+      return `<div class="bar-col">
+        <button class="graph-bar" style="height:${pct}%;" onclick="showGraphDetail('${bucket.date}')"></button>
+        <div class="graph-bar-label">${labelForDate(bucket.date, graphRange)}\n${bucket.total ? fmtDurSec(bucket.total) : ''}</div>
+      </div>`;
+    }).join('');
   }
 
   function renderHist() {
     if (!logsFetched) {
       fetchLog();
-      logsFetched = true;
       return;
     }
-
     if (histMode === 'graph') {
-      const dates = Object.keys(graphCache).sort().slice(-7);
-      if (!dates.length) {
-        document.getElementById('chart-wrap').innerHTML = '<div style="width:100%;text-align:center;color:var(--sub);align-self:center;">No cycles found in logs.</div>';
-        return;
-      }
-      const maxTotal = Math.max(...dates.map(d => graphCache[d]));
-      document.getElementById('chart-wrap').innerHTML = dates.map(d => {
-        const pct = Math.max(2, (graphCache[d] / maxTotal) * 100);
-        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;height:100%;">
-          <div style="flex:1;display:flex;align-items:flex-end;width:100%;justify-content:center;padding-bottom:8px;">
-            <div style="width:70%;min-height:4px;max-height:100%;height:${pct}%;background:var(--text);border-radius:4px 4px 0 0;"></div>
-          </div>
-          <div style="font-size:10px;color:var(--sub);">${d.substring(5)}</div>
-          <div style="font-size:10px;font-weight:600;">${Math.round(graphCache[d] / 60)}m</div>
-        </div>`;
-      }).join('');
+      renderGraph();
     } else {
       document.getElementById('log-wrap').innerHTML = logHtmlCache;
     }
@@ -1022,61 +1409,40 @@
       if (r.status === 401) return showLogin();
       const txt = await r.text();
       const lines = txt.split('\n').filter(line => line.trim().length > 0);
+      parsedLogEntries = lines.map(parseLogLine).filter(Boolean).reverse();
       graphCache = {};
       let html = '';
       let currentDate = '';
 
-      lines.slice().reverse().forEach(line => {
-        const p1 = line.indexOf('|');
-        const p2 = line.indexOf('|', p1 + 1);
-        if (p1 < 0) return;
-
-        const ts = line.substring(0, p1).trim();
-        const date = ts.substring(0, 10);
-        const time = ts.substring(11, 16);
-        const evt = p2 > 0 ? line.substring(p1 + 1, p2).trim() : line.substring(p1 + 1).trim();
-        const msg = p2 > 0 ? line.substring(p2 + 1).trim() : '';
-
-        if (evt === 'CYCLE_START' && msg.includes('duration=')) {
-          let dur = msg.substring(msg.indexOf('duration=') + 9).replace('s', '').trim();
-          const splitAt = dur.indexOf(' ');
-          if (splitAt > 0) dur = dur.substring(0, splitAt);
-          graphCache[date] = (graphCache[date] || 0) + (parseInt(dur, 10) || 0);
+      parsedLogEntries.forEach(entry => {
+        if (entry.evt === 'CYCLE_START' && entry.durationSec > 0) {
+          if (!graphCache[entry.date]) graphCache[entry.date] = { total: 0, entries: [] };
+          graphCache[entry.date].total += entry.durationSec;
+          graphCache[entry.date].entries.push(entry);
         }
 
-        let readable = '';
-        if (evt === 'BOOT') readable = 'System started';
-        else if (evt === 'CYCLE_START') readable = 'Started irrigation';
-        else if (evt === 'CYCLE_END') readable = 'Finished irrigation';
-        else if (evt === 'PRESET_ADDED') readable = 'Added cycle';
-        else if (evt === 'PRESET_EDITED') readable = 'Edited cycle';
-        else if (evt === 'PRESET_DELETED') readable = 'Deleted cycle';
-        else if (evt === 'SCHEDULE_ADDED') readable = 'Added schedule';
-        else if (evt === 'SCHEDULE_EDITED') readable = 'Edited schedule';
-        else if (evt === 'SCHEDULE_DELETED') readable = 'Deleted schedule';
-        else if (evt === 'LOG_CLEARED') readable = 'Cleared log';
-        else readable = [evt, msg].filter(Boolean).join(' ');
-
-        if (date !== currentDate) {
+        if (entry.date !== currentDate) {
           if (currentDate) html += '</div>';
-          html += `<div class="log-group"><div class="log-date">${date}</div>`;
-          currentDate = date;
+          html += `<div class="log-group"><div class="log-date">${entry.date}</div>`;
+          currentDate = entry.date;
         }
 
-        html += `<div class="log-entry"><b style="color:var(--text);width:45px;display:inline-block">${time}</b> ${escapeHtml(readable)}</div>`;
+        html += `<div class="log-entry"><div class="log-time">${entry.time}</div><div class="log-main"><div class="log-title">${escapeHtml(entry.title)}</div>${entry.meta ? `<div class="log-meta">${escapeHtml(entry.meta)}</div>` : ''}</div></div>`;
       });
 
       logHtmlCache = html ? html + '</div>' : '<div style="padding-top:20px;">No logs found.</div>';
       logsFetched = true;
       renderHist();
     } catch (e) {
-      document.getElementById('chart-wrap').innerHTML = 'Failed to load logs.';
+      document.getElementById('chart-wrap').innerHTML = '<div class="graph-empty">Failed to load logs.</div>';
       document.getElementById('log-wrap').innerHTML = 'Failed to load logs.';
     }
   }
 
   async function init() {
     setTimeout(() => nav('home'), 100);
+    setGraphRange('week');
+    setHistTab('graph');
     if (authToken) {
       const ok = await fetchStateLoopOnce();
       if (ok) {
@@ -1091,6 +1457,5 @@
 
   init();
 </script>
-
 </body>
 </html>
