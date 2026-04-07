@@ -1062,19 +1062,7 @@
       clockBaseMs = nextBaseMs;
       clockSyncedAtMs = nowMs;
       updateLiveClock();
-      return;
     }
-
-    const estimatedNowMs = clockBaseMs + (nowMs - clockSyncedAtMs);
-    const driftMs = nextBaseMs - estimatedNowMs;
-
-    // Keep the clock continuous during normal polling jitter.
-    // Only hard-correct when we drift meaningfully.
-    if (Math.abs(driftMs) <= 15000) return;
-
-    clockBaseMs = nextBaseMs;
-    clockSyncedAtMs = nowMs;
-    updateLiveClock();
   }
 
   function updateClockDigits(text) {
