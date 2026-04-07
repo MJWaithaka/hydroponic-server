@@ -1337,6 +1337,9 @@
   function humanizeLogEntry(entry) {
     const details = [];
     let title = entry.evt;
+    const cleanMsg = (entry.msg || '').trim();
+    const idxMatch = cleanMsg.match(/index=(\d+)/);
+    const enabledMatch = cleanMsg.match(/enabled=(\d+)/);
 
     if (entry.evt === 'BOOT') {
       title = 'System started';
@@ -1365,13 +1368,13 @@
       if (entry.msg) details.push(entry.msg);
     } else if (entry.evt === 'SCHEDULE_EDITED') {
       title = 'Schedule updated';
-      if (entry.msg) details.push(entry.msg);
+      if (idxMatch) details.push(`Cycle ${Number(idxMatch[1]) + 1}`);
     } else if (entry.evt === 'SCHEDULE_DELETED') {
       title = 'Schedule deleted';
-      if (entry.msg) details.push(entry.msg);
+      if (idxMatch) details.push(`Cycle ${Number(idxMatch[1]) + 1}`);
     } else if (entry.evt === 'SCHEDULE_TOGGLED') {
-      title = 'Schedule toggled';
-      if (entry.msg) details.push(entry.msg);
+      title = enabledMatch && enabledMatch[1] === '1' ? 'Schedule enabled' : 'Schedule disabled';
+      if (idxMatch) details.push(`Cycle ${Number(idxMatch[1]) + 1}`);
     } else if (entry.evt === 'LOG_CLEARED') {
       title = 'Logs cleared';
     } else if (entry.evt === 'TRIGGER_REJECTED') {
@@ -1394,6 +1397,14 @@
     } else if (entry.evt === 'TIME_RESYNC_FAILED') {
       title = 'Time sync failed';
       if (entry.msg) details.push(entry.msg);
+    } else if (entry.evt === 'PRESET_EDITED') {
+      title = 'Trigger updated';
+      if (idxMatch) details.push(`Trigger ${Number(idxMatch[1]) + 1}`);
+    } else if (entry.evt === 'PRESET_DELETED') {
+      title = 'Trigger deleted';
+      if (cleanMsg) details.push(cleanMsg);
+    } else if (cleanMsg && !details.length) {
+      details.push(cleanMsg.replace(/\s*\|\s*/g, ', '));
     }
 
     return { title, meta: details.filter(Boolean).join(', ') };
