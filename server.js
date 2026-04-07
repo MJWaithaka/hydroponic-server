@@ -125,11 +125,14 @@ app.post('/api/sync-cycles', auth, (req, res) => {
 // ── DASHBOARD ROUTES ──────────────────────────────────────────────────────────
 
 function bAuth(req, res, next) {
-  const b64auth = (req.headers.authorization || '').split(' ')[1] || '';
-  const [l, p] = Buffer.from(b64auth, 'base64').toString().split(':');
+  const authHeader = req.headers.authorization || '';
+  if (!authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Auth required.' });
+  }
+  const token = authHeader.split(' ')[1];
+  const [l, p] = Buffer.from(token, 'base64').toString().split(':');
   if (l === 'admin' && p === (process.env.ADMIN_PASS || 'admin')) return next();
-  res.set('WWW-Authenticate', 'Basic realm="Farm"');
-  res.status(401).send('Auth required.');
+  res.status(401).json({ error: 'Invalid credentials.' });
 }
 
 app.get('/api/state', bAuth, (req, res) => {
@@ -141,14 +144,15 @@ app.get('/api/state', bAuth, (req, res) => {
 
 app.post('/api/command', bAuth, (req, res) => {
   const { command, params } = req.body;
-  const allowed = ['trigger', 'stop', 'resync', 'add_schedule', 'delete_schedule', 'toggle_schedule'];
+  const allowed = ['trigger', 'stop', 'resync', 'add_schedule', 'delete_schedule', 'toggle_schedule', 'edit_schedule', 'clear_log'];
   if (!allowed.includes(command)) return res.status(400).json({ error: 'Unknown command' });
   db.prepare('INSERT INTO commands (command, params, done, created_at) VALUES (?,?,0,?)')
     .run(command, JSON.stringify(params || {}), new Date().toISOString());
   res.json({ ok: true });
 });
 
-app.get('/', bAuth, (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+// Serve frontend WITHOUT auth middleware so Login page can load natively:
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 // ── ESP PROXY ROUTES ──────────────────────────────────────────────────────────
 // These forward requests to the ESP32's SD-backed endpoints.
@@ -191,6 +195,13 @@ app.get('/api/log', bAuth, async (req, res) => {
     const r = await espFetch(`${ESP_BASE}/log.txt`);
     res.type('text/plain').send(await r.text());
   } catch(e) { res.status(503).send(''); }
+});
+
+app.post('/api/clearlog', bAuth, async (req, res) => {
+  try {
+    await espFetch(`${ESP_BASE}/clearlog`);
+    res.json({ ok: true });
+  } catch(e) { res.status(503).json({ error: 'ESP offline' }); }
 });
 
 // ── CYCLE SYNC ────────────────────────────────────────────────────────────────

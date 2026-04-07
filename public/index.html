@@ -97,8 +97,8 @@
     }
     .nav-item.active { color: var(--text); }
     .nav-icon-wrap {
-      padding: 4px 20px;
-      border-radius: 20px;
+      width: 64px; height: 32px;
+      border-radius: 16px;
       transition: background 0.2s;
       display: flex;
       align-items: center;
@@ -308,6 +308,7 @@
       border-radius: 16px;
       font-size: 18px;
       outline: none;
+      appearance: none;
       -webkit-appearance: none;
       font-family: inherit;
     }
@@ -397,6 +398,18 @@
 <body>
   
   <div id="global-spinner"><div class="spinner-circle"></div></div>
+
+  <!-- Login Gateway -->
+  <div id="login-overlay" class="hidden">
+    <div class="login-box" id="login-box-inner">
+      <h1>Controller</h1>
+      <p>Secure Farm Access</p>
+      <div class="input-grp" style="margin-bottom:0;text-align:left;">
+        <input type="password" id="in-pass" placeholder="Password" onkeypress="if(event.key==='Enter') doLogin()">
+      </div>
+      <button class="login-btn" onclick="doLogin()">Unlock</button>
+    </div>
+  </div>
 
   <!-- Header -->
   <div class="header">
@@ -632,6 +645,57 @@
     document.getElementById('m-preset').classList.add('show');
   }
 
+  // Auth State
+  let authToken = localStorage.getItem('farm_token') || '';
+
+  function reqOpts(method = 'GET', bodyObj = null) {
+    const o = { method, headers: {} };
+    if (authToken) o.headers['Authorization'] = 'Bearer ' + authToken;
+    if (bodyObj) {
+      o.headers['Content-Type'] = 'application/json';
+      o.body = JSON.stringify(bodyObj);
+    }
+    return o;
+  }
+
+  function reqOptsForm(bodyString) {
+    const o = { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' } };
+    if (authToken) o.headers['Authorization'] = 'Bearer ' + authToken;
+    o.body = bodyString;
+    return o;
+  }
+
+  function showLogin() {
+    document.getElementById('login-overlay').classList.remove('hidden');
+    document.getElementById('in-pass').value = '';
+    document.getElementById('in-pass').focus();
+  }
+
+  async function doLogin() {
+    const pass = document.getElementById('in-pass').value;
+    const testToken = btoa('admin:' + pass);
+    showSpin();
+    try {
+      const r = await fetch(API_BASE + '/api/state', { method: 'GET', headers: { 'Authorization': 'Bearer ' + testToken} });
+      if (r.status === 401) throw new Error('Auth');
+      
+      authToken = testToken;
+      localStorage.setItem('farm_token', testToken);
+      document.getElementById('login-overlay').classList.add('hidden');
+      await fetchStateLoopOnce();
+      fetchPresets();
+      fetchLog();
+    } catch(e) {
+      banner('Invalid Password');
+      const box = document.getElementById('login-box-inner');
+      box.style.transform = 'translate(-10px, 0)';
+      setTimeout(()=>box.style.transform='translate(10px, 0)', 100);
+      setTimeout(()=>box.style.transform='translate(-10px, 0)', 200);
+      setTimeout(()=>box.style.transform='translate(0, 0)', 300);
+    }
+    hideSpin();
+  }
+
   // Banner Notice
   let bTmr;
   function banner(msg, duration = 3000) {
@@ -783,7 +847,9 @@
   // Fetch Loops
   async function loopState() {
     try {
-      const r = await fetch(API_BASE + '/api/state');
+      if (!authToken) return setTimeout(loopState, 10000);
+      const r = await fetch(API_BASE + '/api/state', reqOpts('GET'));
+      if (r.status === 401) return showLogin();
       globalState = await r.json();
       renderAll();
       if(document.getElementById('p-hist').classList.contains('active')) renderHist();
@@ -793,7 +859,8 @@
 
   async function fetchPresets() {
     try {
-      const r = await fetch(API_BASE + (isEsp ? '/presets' : '/api/presets'));
+      const r = await fetch(API_BASE + (isEsp ? '/presets' : '/api/presets'), reqOpts('GET'));
+      if (r.status === 401) return showLogin();
       const d = await r.json();
       if (d.presets) globalPresets = d.presets;
       renderAll();
@@ -804,13 +871,7 @@
   function hideSpin() { document.getElementById('global-spinner').classList.remove('show'); }
 
   async function apiCallRaw(cmd, d) {
-    try {
-      await fetch(API_BASE + '/api/command', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ command: cmd, params: d })
-      });
-    } catch(e) {}
+    await fetch(API_BASE + '/api/command', reqOpts('POST', { command: cmd, params: d }));
   }
 
   async function apiCall(cmd, d = {}, waitMsg = 'Saving...', doneMsg = 'Saved') {
@@ -828,10 +889,21 @@
 
   async function fetchStateLoopOnce() {
     try {
-      const r = await fetch(API_BASE + '/api/state');
+      const r = await fetch(API_BASE + '/api/state', reqOpts('GET'));
+      if(r.status === 401) return showLogin();
       globalState = await r.json();
       renderAll();
     } catch(e){}
+  }
+
+  async function fetchPresets() {
+    try {
+      const r = await fetch(API_BASE + '/api/presets', reqOpts('GET'));
+      if(r.status === 401) return showLogin();
+      const d = await r.json();
+      globalPresets = d.presets || [];
+      renderPresets();
+    } catch(e) {}
   }
 
   // Add/Edit Handlers
@@ -844,12 +916,15 @@
     if(dur <= 0) return banner('Invalid duration');
     
     showSpin();
-    if (editId !== null) await apiCallRaw('delete_schedule', {index: editId});
-    await apiCallRaw('add_schedule', { hour: h, minute: m, duration_sec: dur });
-    await fetchStateLoopOnce();
+    try {
+      if (editId !== null && isEsp) await fetch(API_BASE + `/delete?i=${editId}`, reqOpts('GET'));
+      if (editId !== null && !isEsp) await apiCallRaw('edit_schedule', {index: editId, hour: h, minute: m, duration_sec: dur});
+      else await apiCallRaw('add_schedule', { hour: h, minute: m, duration_sec: dur });
+      
+      banner(editId !== null ? 'Cycle updated' : 'Cycle added');
+      await fetchStateLoopOnce();
+    } catch(e){ banner('Error saving'); }
     hideSpin();
-    
-    banner(editId !== null ? 'Cycle updated' : 'Cycle added');
     hideModal(null, 'm-sched');
     document.getElementById('in-sh').value=''; document.getElementById('in-sm').value=''; 
     document.getElementById('in-sd-m').value=''; document.getElementById('in-sd-s').value='';
@@ -865,32 +940,22 @@
     showSpin();
     try {
       if (editId !== null) {
-        await fetch(API_BASE + (isEsp ? `/presets/delete?i=${editId}` : '/api/presets/delete'), {
-          method: isEsp ? 'GET':'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: isEsp ? null : JSON.stringify({ index: editId })
-        });
+        await fetch(API_BASE + (isEsp ? `/presets/delete?i=${editId}` : '/api/presets/delete'), 
+          isEsp ? reqOpts('GET') : reqOpts('POST', { index: editId })
+        );
       }
       
       if (isEsp) {
-        await fetch(API_BASE + '/presets/add', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: `dur=${dur}&label=${encodeURIComponent(lbl)}`
-        });
+        await fetch(API_BASE + '/presets/add', reqOptsForm(`dur=${dur}&label=${encodeURIComponent(lbl)}`));
       } else {
-        await fetch(API_BASE + '/api/presets/add', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ duration_sec: dur, label: lbl })
-        });
+        await fetch(API_BASE + '/api/presets/add', reqOpts('POST', { duration_sec: dur, label: lbl }));
       }
       banner(editId !== null ? 'Cycle updated' : 'Cycle added');
-      hideModal(null, 'm-preset');
       document.getElementById('in-pl').value=''; 
       document.getElementById('in-pd-m').value=''; document.getElementById('in-pd-s').value='';
       await fetchPresets();
     } catch(e) { banner('Error saving'); }
+    hideModal(null, 'm-preset');
     hideSpin();
   }
 
@@ -898,11 +963,9 @@
     if(!confirm('Delete cycle?')) return;
     showSpin();
     try {
-      await fetch(API_BASE + (isEsp ? `/presets/delete?i=${idx}` : '/api/presets/delete'), {
-        method: isEsp ? 'GET':'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: isEsp ? null : JSON.stringify({ index: idx })
-      });
+      await fetch(API_BASE + (isEsp ? `/presets/delete?i=${idx}` : '/api/presets/delete'), 
+        isEsp ? reqOpts('GET') : reqOpts('POST', { index: idx })
+      );
       banner('Deleted');
       await fetchPresets();
     } catch(e) {}
@@ -950,9 +1013,25 @@
     }
   }
 
+  async function downloadLog() {
+    try {
+      const r = await fetch(API_BASE + (isEsp ? '/log.txt' : '/api/log'), reqOpts('GET'));
+      if(r.status === 401) return showLogin();
+      const txt = await r.text();
+      const blob = new Blob([txt], { type: 'text/plain' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'irrigation_log.txt';
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch(e) { banner('Error downloading logs'); }
+  }
+
   async function fetchLog() {
     try {
-      const r = await fetch(API_BASE + (isEsp ? '/log.txt' : '/api/log'));
+      const r = await fetch(API_BASE + (isEsp ? '/log.txt' : '/api/log'), reqOpts('GET'));
+      if(r.status === 401) return showLogin();
       const txt = await r.text();
       const lines = txt.split('\n').filter(l => l.trim().length > 0);
       
