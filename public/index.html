@@ -195,6 +195,39 @@
       font-weight: 300;
       letter-spacing: -1px;
       font-variant-numeric: tabular-nums;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .clock-slot {
+      position: relative;
+      width: 0.62em;
+      height: 1em;
+      overflow: hidden;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .clock-wheel {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      transition: transform 0.34s cubic-bezier(0.2, 0.7, 0.15, 1);
+      will-change: transform;
+    }
+    .clock-wheel span {
+      display: block;
+      height: 1em;
+      text-align: center;
+    }
+    .clock-sep {
+      width: 0.3em;
+      text-align: center;
+      opacity: 0.76;
+      transform: translateY(-0.02em);
     }
     .sub-state {
       position: absolute;
@@ -544,24 +577,28 @@
       border-radius: 16px;
       padding: 14px 16px;
       margin-bottom: 8px;
-      display: flex;
+      display: grid;
+      grid-template-columns: 78px minmax(0, 1fr);
       align-items: center;
       gap: 12px;
       font-size: 14px;
     }
     .log-entry:nth-child(even) { background: var(--card-even); }
     .log-time {
-      width: 70px;
       color: var(--text);
       font-variant-numeric: tabular-nums;
-      flex-shrink: 0;
+      justify-self: end;
+      text-align: right;
+      width: 100%;
       display: flex;
       align-items: center;
-      min-height: 100%;
+      justify-content: flex-end;
+      min-height: 36px;
     }
     .log-main {
       display: flex;
       flex-direction: column;
+      justify-content: center;
       gap: 4px;
       min-width: 0;
     }
@@ -962,6 +999,8 @@
   let graphCache = {};
   let parsedLogEntries = [];
   let selectedScheduleIndex = null;
+  let clockBaseMs = null;
+  let clockSyncedAtMs = 0;
   let bTmr;
 
   function reqOpts(method = 'GET', bodyObj = null) {
@@ -991,6 +1030,62 @@
 
   function fmtTimeWithSeconds(h, m, s) {
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
+
+  function localDateKey(date = new Date()) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  }
+
+  function ensureClockMarkup() {
+    const el = document.getElementById('ring-time');
+    if (el.dataset.ready === '1') return;
+    const wheel = () => `<span class="clock-slot"><span class="clock-wheel">${Array.from({ length: 10 }, (_, n) => `<span>${n}</span>`).join('')}</span></span>`;
+    el.innerHTML = `${wheel()}${wheel()}<span class="clock-sep">:</span>${wheel()}${wheel()}<span class="clock-sep">:</span>${wheel()}${wheel()}`;
+    el.dataset.ready = '1';
+  }
+
+  function setClockUnsynced() {
+    const el = document.getElementById('ring-time');
+    el.textContent = '--:--:--';
+    delete el.dataset.ready;
+    clockBaseMs = null;
+    clockSyncedAtMs = 0;
+  }
+
+  function setClockFromServer(hh, mm, ss) {
+    const now = new Date();
+    now.setHours(hh, mm, ss, 0);
+    clockBaseMs = now.getTime();
+    clockSyncedAtMs = Date.now();
+    updateLiveClock();
+  }
+
+  function updateClockDigits(text) {
+    ensureClockMarkup();
+    const digits = text.replace(/:/g, '').split('');
+    document.querySelectorAll('#ring-time .clock-wheel').forEach((wheel, idx) => {
+      const digit = Number(digits[idx] || 0);
+      wheel.style.transform = `translateY(-${digit}em)`;
+    });
+    document.getElementById('ring-time').setAttribute('aria-label', text);
+  }
+
+  function updateRingDotFromSeconds(totalSeconds) {
+    const angleDeg = (totalSeconds / 86400) * 360 - 90;
+    const angleRad = angleDeg * Math.PI / 180;
+    document.getElementById('ring-dot').setAttribute('cx', 100 + 90 * Math.cos(angleRad));
+    document.getElementById('ring-dot').setAttribute('cy', 100 + 90 * Math.sin(angleRad));
+    document.getElementById('ring-dot').style.display = 'block';
+  }
+
+  function updateLiveClock() {
+    if (!clockBaseMs) return;
+    const live = new Date(clockBaseMs + (Date.now() - clockSyncedAtMs));
+    const hh = live.getHours();
+    const mm = live.getMinutes();
+    const ss = live.getSeconds();
+    updateClockDigits(fmtTimeWithSeconds(hh, mm, ss));
+    updateRingDotFromSeconds((hh * 3600) + (mm * 60) + ss);
   }
 
   function fmtDurSec(totalSeconds) {
@@ -1202,13 +1297,15 @@
   }
 
   function formatLogDate(dateStr) {
+    if (dateStr === '__startup') return 'Startup / Unsynced';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr || '')) return 'Unknown Date';
     const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const today = new Date();
-    const todayStr = today.toISOString().substring(0, 10);
+    const todayStr = localDateKey(today);
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().substring(0, 10);
+    const yesterdayStr = localDateKey(yesterday);
     if (dateStr === todayStr) return 'Today';
     if (dateStr === yesterdayStr) return 'Yesterday';
     const d = new Date(dateStr + 'T12:00:00');
@@ -1298,19 +1395,22 @@
   }
 
   function parseLogLine(line) {
-    const p1 = line.indexOf('|');
-    const p2 = line.indexOf('|', p1 + 1);
-    if (p1 < 0) return null;
-    const ts = line.substring(0, p1).trim();
-    const evt = p2 > 0 ? line.substring(p1 + 1, p2).trim() : line.substring(p1 + 1).trim();
-    const msg = p2 > 0 ? line.substring(p2 + 1).trim() : '';
+    const parts = line.split('|').map(part => part.trim()).filter(Boolean);
+    if (!parts.length) return null;
+    const ts = parts[0];
+    const absoluteTs = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(ts);
+    const relativeTs = /^T\+\d{2}:\d{2}:\d{2}$/.test(ts);
+    const evt = absoluteTs ? (parts[1] || '') : (relativeTs ? (parts[1] || '') : ts);
+    const msg = absoluteTs ? parts.slice(2).join(' | ') : (relativeTs ? parts.slice(2).join(' | ') : parts.slice(1).join(' | '));
     const entry = {
       raw: line,
       ts,
-      date: ts.substring(0, 10),
-      time: ts.substring(11, 19),
+      date: absoluteTs ? ts.substring(0, 10) : '__startup',
+      time: absoluteTs ? ts.substring(11, 19) : '',
+      timeDisplay: absoluteTs ? ts.substring(11, 19) : (relativeTs ? ts : '&nbsp;'),
       evt,
       msg,
+      absoluteTs,
       durationSec: 0,
       reason: ''
     };
@@ -1378,17 +1478,9 @@
 
     const match = String(st.current_time || '').match(/(\d\d):(\d\d):(\d\d)/);
     if (match) {
-      const hh = parseInt(match[1], 10);
-      const mm = parseInt(match[2], 10);
-      const ss = parseInt(match[3], 10);
-      document.getElementById('ring-time').textContent = fmtTimeWithSeconds(hh, mm, ss);
-      const angleDeg = ((hh * 3600 + mm * 60 + ss) / 86400) * 360 - 90;
-      const angleRad = angleDeg * Math.PI / 180;
-      document.getElementById('ring-dot').setAttribute('cx', 100 + 90 * Math.cos(angleRad));
-      document.getElementById('ring-dot').setAttribute('cy', 100 + 90 * Math.sin(angleRad));
-      document.getElementById('ring-dot').style.display = 'block';
+      setClockFromServer(parseInt(match[1], 10), parseInt(match[2], 10), parseInt(match[3], 10));
     } else {
-      document.getElementById('ring-time').textContent = '--:--';
+      setClockUnsynced();
       document.getElementById('ring-dot').style.display = 'none';
     }
 
@@ -1632,13 +1724,22 @@
       if (r.status === 401) return showLogin();
       const txt = await r.text();
       const lines = txt.split('\n').filter(line => line.trim().length > 0);
-      parsedLogEntries = lines.map(parseLogLine).filter(Boolean).reverse();
+      const chronoEntries = lines.map(parseLogLine).filter(Boolean);
+      let lastAbsoluteDate = '';
+      chronoEntries.forEach(entry => {
+        if (entry.absoluteTs) {
+          lastAbsoluteDate = entry.date;
+        } else if (lastAbsoluteDate) {
+          entry.date = lastAbsoluteDate;
+        }
+      });
+      parsedLogEntries = chronoEntries.reverse();
       graphCache = {};
       let html = '';
       let currentDate = '';
 
       parsedLogEntries.forEach(entry => {
-        if (entry.evt === 'CYCLE_START' && entry.durationSec > 0) {
+        if (entry.absoluteTs && entry.evt === 'CYCLE_START' && entry.durationSec > 0) {
           if (!graphCache[entry.date]) graphCache[entry.date] = { total: 0, entries: [] };
           graphCache[entry.date].total += entry.durationSec;
           graphCache[entry.date].entries.push(entry);
@@ -1650,7 +1751,7 @@
           currentDate = entry.date;
         }
 
-        html += `<div class="log-entry"><div class="log-time">${entry.time}</div><div class="log-main"><div class="log-title">${escapeHtml(entry.title)}</div>${entry.meta ? `<div class="log-meta">${escapeHtml(entry.meta)}</div>` : ''}</div></div>`;
+        html += `<div class="log-entry"><div class="log-time">${entry.timeDisplay}</div><div class="log-main"><div class="log-title">${escapeHtml(entry.title)}</div>${entry.meta ? `<div class="log-meta">${escapeHtml(entry.meta)}</div>` : ''}</div></div>`;
       });
 
       logHtmlCache = html ? html + '</div>' : '<div style="padding-top:20px;">No logs found.</div>';
@@ -1667,6 +1768,8 @@
       if (!event.target.closest('#status-wrap')) closeStatusTip();
       if (!event.target.closest('#ring-detail-pop') && !event.target.closest('.ring-hit-target')) closeScheduleDetail();
     });
+    setClockUnsynced();
+    setInterval(updateLiveClock, 1000);
     setTimeout(() => nav('home'), 100);
     setGraphRange('week');
     setHistTab('graph');
