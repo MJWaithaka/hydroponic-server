@@ -1053,10 +1053,27 @@
   }
 
   function setClockFromServer(hh, mm, ss) {
-    const now = new Date();
-    now.setHours(hh, mm, ss, 0);
-    clockBaseMs = now.getTime();
-    clockSyncedAtMs = Date.now();
+    const serverNow = new Date();
+    serverNow.setHours(hh, mm, ss, 0);
+    const nextBaseMs = serverNow.getTime();
+    const nowMs = Date.now();
+
+    if (!clockBaseMs) {
+      clockBaseMs = nextBaseMs;
+      clockSyncedAtMs = nowMs;
+      updateLiveClock();
+      return;
+    }
+
+    const estimatedNowMs = clockBaseMs + (nowMs - clockSyncedAtMs);
+    const driftMs = nextBaseMs - estimatedNowMs;
+
+    // Keep the clock continuous during normal polling jitter.
+    // Only hard-correct when we drift meaningfully.
+    if (Math.abs(driftMs) <= 15000) return;
+
+    clockBaseMs = nextBaseMs;
+    clockSyncedAtMs = nowMs;
     updateLiveClock();
   }
 
