@@ -107,6 +107,21 @@ app.get('/api/commands', auth, (req, res) => {
   res.json({ command: cmd.command, params: JSON.parse(cmd.params || '{}') });
 });
 
+app.post('/api/sync-cycles', auth, (req, res) => {
+  const incoming = req.body.cycles || [];
+  let added = 0;
+  const check = db.prepare('SELECT id FROM cycles WHERE date=? AND time=? AND duration=?');
+  const ins = db.prepare('INSERT INTO cycles (date,time,duration,reason) VALUES (?,?,?,?)');
+  for (const c of incoming) {
+    const exists = check.get(c.date, c.time, c.duration);
+    if (!exists) {
+      ins.run(c.date, c.time, c.duration, c.reason || '');
+      added++;
+    }
+  }
+  res.json({ ok: true, added });
+});
+
 // ── DASHBOARD ROUTES ──────────────────────────────────────────────────────────
 
 app.get('/api/state', (req, res) => {
