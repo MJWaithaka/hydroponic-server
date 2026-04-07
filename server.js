@@ -127,6 +127,49 @@ app.post('/api/command', (req, res) => {
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
+// ── ESP PROXY ROUTES ──────────────────────────────────────────────────────────
+// These forward requests to the ESP32's SD-backed endpoints.
+// Falls back gracefully when ESP is offline.
+const ESP_BASE = 'http://172.23.6.200';
+const espFetch = (url, opts = {}) =>
+  fetch(url, { signal: AbortSignal.timeout(5000), ...opts });
+
+app.get('/api/presets', async (req, res) => {
+  try {
+    const r = await espFetch(`${ESP_BASE}/presets`);
+    res.json(await r.json());
+  } catch(e) { res.json({ presets: [], offline: true }); }
+});
+
+app.post('/api/presets/add', async (req, res) => {
+  const { duration_sec, label } = req.body;
+  try {
+    await espFetch(`${ESP_BASE}/presets/add`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `dur=${encodeURIComponent(duration_sec)}&label=${encodeURIComponent(label || '')}`
+    });
+    res.json({ ok: true });
+  } catch(e) { res.status(503).json({ error: 'ESP offline' }); }
+});
+
+app.post('/api/presets/delete', async (req, res) => {
+  const { index } = req.body;
+  try {
+    await espFetch(`${ESP_BASE}/presets/delete?i=${index}`);
+    res.json({ ok: true });
+  } catch(e) { res.status(503).json({ error: 'ESP offline' }); }
+});
+
+app.get('/api/log', async (req, res) => {
+  try {
+    const r = await espFetch(`${ESP_BASE}/log.txt`);
+    res.type('text/plain').send(await r.text());
+  } catch(e) { res.status(503).send(''); }
+});
+
+// ── CYCLE SYNC ────────────────────────────────────────────────────────────────
+
 async function sendTelegram(msg) {
   const token = process.env.TG_TOKEN;
   const chatId = process.env.TG_CHAT_ID;

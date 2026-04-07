@@ -1,410 +1,912 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Hydroponic Controller</title>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --blue:#5d77f6;--blue-dark:#3d57d6;--blue-light:#eef1fe;
-  --blue-mid:#c8d0fb;--text:#1a1a2e;--sub:#6b7280;
-  --border:#e5e7eb;--bg:#f5f6ff;--white:#ffffff;
-  --green:#16a34a;--red:#dc2626;--amber:#d97706;
-}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-  background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;
-  max-width:520px;margin:0 auto;padding:12px 14px 32px}
-h1{font-size:18px;font-weight:600;color:var(--blue-dark);margin:0}
-.meta{font-size:12px;color:var(--sub);margin:2px 0 10px}
-.card{background:var(--white);border:1px solid var(--border);
-  border-radius:12px;padding:14px;margin-bottom:10px}
-.card-hdr{font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px}
-.pill{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;
-  border-radius:20px;font-size:11px;font-weight:500}
-.pill-on{background:#dcfce7;color:#15803d}
-.pill-off{background:#f3f4f6;color:var(--sub)}
-.pill-done{background:var(--blue-light);color:var(--blue-dark)}
-table{width:100%;border-collapse:collapse;font-size:13px}
-th{text-align:left;color:var(--sub);font-weight:500;font-size:11px;
-  padding:4px 6px;border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.03em}
-td{padding:9px 6px;border-bottom:1px solid #f9f9f9;vertical-align:middle}
-.btn{display:inline-flex;align-items:center;justify-content:center;
-  padding:6px 14px;border-radius:8px;text-decoration:none;font-size:13px;
-  font-weight:500;cursor:pointer;border:none;transition:opacity .15s;font-family:inherit}
-.btn:active{opacity:.8}
-.btn-primary{background:var(--blue);color:var(--white)}
-.btn-primary:hover{background:var(--blue-dark)}
-.btn-secondary{background:var(--blue-light);color:var(--blue-dark)}
-.btn-danger{background:#fef2f2;color:var(--red);border:1px solid #fecaca}
-.btn-ghost{background:#f9fafb;color:var(--sub);border:1px solid var(--border)}
-.btn-sm{padding:3px 9px;font-size:11px;border-radius:6px}
-.btn-full{width:100%;margin-top:10px;padding:11px}
-input,select{width:100%;padding:8px 10px;font-size:14px;
-  border:1px solid var(--border);border-radius:8px;outline:none;
-  transition:border-color .15s;background:var(--white);color:var(--text)}
-input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(93,119,246,.12)}
-label{font-size:12px;color:var(--sub);display:block;margin:10px 0 3px}
-.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
-.notice{background:var(--blue-light);border-left:3px solid var(--blue);
-  padding:9px 12px;border-radius:8px;margin-bottom:10px;font-size:13px;color:var(--blue-dark)}
-.alert-running{background:#fffbeb;border-left:3px solid var(--amber);
-  padding:9px 12px;border-radius:8px;margin-bottom:10px;font-size:13px;color:var(--amber)}
-.stat-row{display:flex;gap:8px;margin-bottom:10px}
-.stat{flex:1;background:var(--blue-light);border-radius:10px;padding:10px 12px}
-.stat-val{font-size:18px;font-weight:600;color:var(--blue-dark)}
-.stat-lbl{font-size:11px;color:var(--sub);margin-top:1px}
-.nav-row{display:flex;gap:8px;margin-top:8px}
-.nav-row button{flex:1;text-align:center;padding:9px;background:var(--white);
-  border:1px solid var(--border);border-radius:8px;
-  color:var(--sub);font-size:12px;font-weight:500;cursor:pointer;font-family:inherit}
-.nav-row button:hover{border-color:var(--blue);color:var(--blue)}
-.nav-row button.active{background:var(--blue);color:var(--white);border-color:var(--blue)}
-.hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
-.conn{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--sub)}
-.dot{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block}
-.dot-off{background:var(--red)}
-.page{display:none}.page.active{display:block}
-.view-tabs{display:flex;gap:6px;margin-bottom:12px}
-.tab{flex:1;padding:7px;text-align:center;border-radius:8px;cursor:pointer;
-  font-size:13px;font-weight:500;border:1px solid var(--border);
-  background:var(--white);color:var(--sub);transition:all .15s}
-.tab.active{background:var(--blue);color:var(--white);border-color:var(--blue)}
-.week-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
-.week-nav button{background:var(--white);border:1px solid var(--border);
-  border-radius:8px;padding:6px 14px;cursor:pointer;font-size:13px;color:var(--sub);font-family:inherit}
-.week-nav button:hover{border-color:var(--blue);color:var(--blue)}
-.week-nav button:disabled{opacity:.35;cursor:default}
-.week-label{font-size:13px;font-weight:600;color:var(--text)}
-.chart-wrap{background:var(--white);border:1px solid var(--border);border-radius:12px;
-  padding:14px;margin-bottom:10px;position:relative}
-.bar-chart{display:flex;align-items:flex-end;gap:2px;height:200px;width:100%;overflow-x:auto}
-.bar-col{display:flex;flex-direction:column-reverse;align-items:center;flex:1;min-width:0;height:100%}
-.month-col{flex:1;min-width:0}
-.bar{width:70%;border-radius:3px 3px 0 0;background:var(--blue);
-  transition:height .3s ease;min-height:2px;cursor:pointer;position:relative}
-.bar:hover{background:var(--blue-dark)}
-.bar-tip{position:absolute;bottom:calc(100%+4px);left:50%;transform:translateX(-50%);
-  background:var(--text);color:var(--white);padding:3px 7px;border-radius:5px;
-  font-size:11px;white-space:nowrap;pointer-events:none;display:none;z-index:10}
-.bar:hover .bar-tip{display:block}
-.bar-lbl{font-size:8px;color:var(--sub);margin-bottom:4px;text-align:center;line-height:1.1;width:18px;overflow:hidden}
-.empty-chart{height:200px;display:flex;align-items:center;justify-content:center;
-  color:var(--sub);font-size:13px}
-.summary-row{display:flex;gap:8px;margin-bottom:10px}
-.s-box{flex:1;background:var(--blue-light);border-radius:10px;padding:10px;text-align:center}
-.s-val{font-size:16px;font-weight:600;color:var(--blue-dark)}
-.s-lbl{font-size:11px;color:var(--sub);margin-top:2px}
-.stale{opacity:.5;font-style:italic}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <title>Irrigation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+    :root {
+      --bg: #000000;
+      --card-odd: #1c1c1e;   /* Dark gray */
+      --card-even: #2c2c2e;  /* Lighter gray */
+      --card-light: #3a3a3c; /* For notifications */
+      --text: #ffffff;
+      --sub: #98989d;
+      --accent: #ffffff;
+      --danger: #ff453a;
+      --ring-bg: #2c2c2e;
+      --fab: #ffffff;
+      --fab-icon: #000000;
+    }
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      max-width: 520px;
+      margin: 0 auto;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden; 
+    }
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    
+    /* ── Header ── */
+    .header {
+      padding: 24px 20px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--sub);
+      transition: background 0.3s;
+    }
+    .status-dot.online { background: #32d74b; }
+    .page-title {
+      font-size: 14px;
+      color: var(--sub);
+      font-weight: 400;
+      text-transform: capitalize;
+    }
+    
+    .content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 20px 100px 20px; 
+    }
+    
+    /* ── Bottom Nav ── */
+    .nav {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 520px;
+      background: var(--bg);
+      display: flex;
+      padding-bottom: env(safe-area-inset-bottom);
+      z-index: 100;
+    }
+    .nav-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 64px;
+      color: var(--sub);
+      text-decoration: none;
+      cursor: pointer;
+      gap: 4px;
+    }
+    .nav-item.active { color: var(--text); }
+    .nav-icon-wrap {
+      padding: 4px 20px;
+      border-radius: 20px;
+      transition: background 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .nav-item.active .nav-icon-wrap { background: var(--card-even); }
+    .nav-item .material-symbols-outlined { font-size: 24px; }
+    .nav-item.active .material-symbols-outlined { font-variation-settings: 'FILL' 1; }
+    .nav-label { font-size: 11px; font-weight: 500; }
+
+    /* ── Pages ── */
+    .page { display: none; animation: fade .2s ease; }
+    .page.active { display: block; }
+    @keyframes fade { from{opacity:0;} to{opacity:1;} }
+
+    /* ── Ring (Home) ── */
+    .ring-container {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1;
+      max-height: 320px;
+      margin: 20px auto;
+    }
+    .central-time {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 64px;
+      font-weight: 300;
+      letter-spacing: -2px;
+    }
+    .sub-state {
+      position: absolute;
+      top: 68%;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 14px;
+      color: var(--sub);
+      font-weight: 500;
+      background: var(--card-odd);
+      padding: 6px 16px;
+      border-radius: 20px;
+      white-space: nowrap;
+    }
+
+    /* ── Cards / Stat Strip ── */
+    .stat-strip {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+    }
+    .stat-card {
+      flex: 1;
+      border-radius: 24px;
+      padding: 16px;
+      text-align: center;
+      background: var(--card-odd);
+    }
+    .stat-strip .stat-card:nth-child(even) { background: var(--card-even); }
+    .stat-val { font-size: 20px; font-weight: 600; margin-bottom: 2px; }
+    .stat-lbl { font-size: 12px; color: var(--sub); }
+
+    /* Last event card */
+    .last-event-card {
+      margin-top: 12px; 
+      text-align: left; 
+      font-size: 13px; 
+      color: var(--sub);
+      border-radius: 24px;
+      padding: 16px 20px;
+      background: var(--card-even);
+    }
+
+    /* ── Lists (Alternating) ── */
+    .list-item {
+      border-radius: 24px;
+      padding: 20px 24px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    /* Alternating colors for list items in Schedules & Manual */
+    #sched-list .list-item:nth-child(odd),
+    #man-list .list-item:nth-child(odd) { background: var(--card-odd); }
+    
+    #sched-list .list-item:nth-child(even),
+    #man-list .list-item:nth-child(even) { background: var(--card-even); }
+
+    .list-item.disabled { opacity: 0.4; }
+    .list-time { font-size: 36px; font-weight: 300; letter-spacing: -1px; margin-bottom: 2px;}
+    .list-dur { font-size: 14px; color: var(--sub); font-weight: 500;}
+
+    /* Toggle Switch */
+    .toggle {
+      position: relative;
+      width: 50px;
+      height: 30px;
+      background: #000;
+      border-radius: 30px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .toggle.on { background: var(--accent); }
+    .toggle-knob {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 26px;
+      height: 26px;
+      background: var(--sub);
+      border-radius: 50%;
+      transition: transform 0.2s, background 0.2s;
+    }
+    .toggle.on .toggle-knob { transform: translateX(20px); background: #000; }
+
+    /* ── Presets ── */
+    .preset-title { font-size: 24px; font-weight: 400; }
+    .preset-sub { font-size: 14px; color: var(--sub); margin-top:2px; }
+
+    /* ── Action Buttons (Icon only) ── */
+    .icon-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: #000;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      border: none;
+    }
+    .icon-btn.primary { background: var(--accent); color: #000; }
+    .icon-btn.danger { background: rgba(255,69,58,0.15); color: var(--danger); }
+    .icon-btn .material-symbols-outlined { font-size: 20px; }
+
+    /* ── Fab ── */
+    .fab {
+      position: fixed;
+      bottom: 84px;
+      right: 20px;
+      width: 64px;
+      height: 64px;
+      border-radius: 20px;
+      background: var(--fab);
+      color: var(--fab-icon);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      cursor: pointer;
+      z-index: 90;
+    }
+    .fab .material-symbols-outlined { font-size: 32px; font-variation-settings: 'wght' 300; }
+
+    /* ── Emergency Stop ── */
+    .e-stop {
+      border-radius: 24px;
+      padding: 18px;
+      text-align: center;
+      background: rgba(255, 69, 58, 0.1);
+      color: var(--danger);
+      font-size: 15px;
+      font-weight: 600;
+      margin-top: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    /* ── Modals ── */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.8);
+      backdrop-filter: blur(4px);
+      z-index: 200;
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .modal-overlay.show { display: flex; animation: fade .2s ease; }
+    .modal-sheet {
+      background: var(--card-odd);
+      width: 100%;
+      max-width: 520px;
+      border-radius: 28px 28px 0 0;
+      padding: 24px;
+      transform: translateY(100%);
+      transition: transform .3s cubic-bezier(0.1, 0.9, 0.2, 1);
+    }
+    .modal-overlay.show .modal-sheet { transform: translateY(0); }
+    .modal-title { font-size: 20px; font-weight: 500; margin-bottom: 24px; text-align: center;}
+    
+    .input-grp { margin-bottom: 20px; }
+    .input-row { display: flex; gap: 12px; }
+    .input-grp label { display: block; font-size: 13px; color: var(--sub); margin-bottom: 8px; padding-left:4px;}
+    .input-grp input {
+      width: 100%;
+      background: var(--card-even);
+      border: none;
+      color: #fff;
+      padding: 16px;
+      border-radius: 16px;
+      font-size: 18px;
+      outline: none;
+      -webkit-appearance: none;
+      font-family: inherit;
+    }
+    
+    .modal-actions {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin-top: 32px;
+    }
+    .modal-fab {
+      width: 64px; height: 64px;
+      border-radius: 20px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+    }
+    .modal-fab.cancel { background: var(--card-even); color: var(--text); }
+    .modal-fab.save { background: var(--accent); color: #000; }
+    .modal-fab .material-symbols-outlined { font-size: 28px; }
+
+    /* ── History Subnav ── */
+    .subnav { display: flex; gap: 8px; margin-bottom: 24px; }
+    .sub-pill {
+      padding: 10px 20px;
+      border-radius: 24px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--sub);
+      background: var(--card-odd);
+      cursor: pointer;
+    }
+    .sub-pill.active { background: var(--text); color: #000; }
+
+    /* ── Log ── */
+    .log-group { margin-bottom: 24px; }
+    .log-date { font-size: 12px; color: var(--sub); font-weight: 600; text-transform: uppercase; margin-bottom: 12px; padding-left:4px; }
+    .log-entry { 
+      background: var(--card-odd);
+      border-radius: 16px;
+      padding: 14px 16px;
+      margin-bottom: 8px;
+      display: flex; gap: 12px;
+      font-size: 14px;
+    }
+    #log-wrap .log-entry:nth-child(even) { background: var(--card-even); }
+    
+    /* ── Banner ── */
+    .banner {
+      position: fixed;
+      top: 20px; left: 50%; 
+      background: var(--card-light);
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 30px;
+      font-size: 14px;
+      font-weight: 500;
+      z-index: 300;
+      white-space: nowrap;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      
+      transform: translate(-50%, -20px) scale(0.9);
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s cubic-bezier(0.1, 0.9, 0.2, 1);
+    }
+    .banner.show { 
+      transform: translate(-50%, 0) scale(1);
+      opacity: 1;
+      visibility: visible;
+    }
+
+
+  </style>
 </head>
 <body>
 
-<div class="hdr">
-  <div>
-    <h1>Hydroponic Controller</h1>
-    <p class="meta" id="meta">Loading...</p>
+  <!-- Header -->
+  <div class="header">
+    <div class="page-title" id="page-title">Home</div>
+    <div class="status-dot" id="status-dot"></div>
   </div>
-  <div class="conn">
-    <span class="dot" id="conn-dot"></span>
-    <span id="conn-txt">--</span>
-  </div>
-</div>
 
-<div id="relay-bar"></div>
-<div id="notice"></div>
+  <div class="banner" id="banner"></div>
 
-<div class="stat-row">
-  <div class="stat"><div class="stat-val" id="s-schedules">--</div><div class="stat-lbl">Schedules</div></div>
-  <div class="stat"><div class="stat-val" id="s-sd">--</div><div class="stat-lbl">SD Card</div></div>
-  <div class="stat"><div class="stat-val" id="s-time">--</div><div class="stat-lbl">Time</div></div>
-</div>
+  <!-- CONTAINER -->
+  <div class="content">
+    
+    <!-- HOME PAGE -->
+    <div class="page active" id="p-home">
+      <div class="ring-container">
+        <svg viewBox="0 0 200 200" style="width:100%;height:100%;">
+          <!-- Base ring -->
+          <circle cx="100" cy="100" r="90" fill="none" stroke="var(--ring-bg)" stroke-width="2"></circle>
+          <!-- Schedules arcs -->
+          <g id="ring-arcs"></g>
+          <!-- Orbiting dot for current time -->
+          <circle cx="100" cy="10" r="4" fill="var(--accent)" id="ring-dot"></circle>
+        </svg>
+        <div class="central-time" id="ring-time">--:--</div>
+        <div class="sub-state" id="ring-state">Waiting...</div>
+      </div>
 
-<div id="last-event-card"></div>
-
-<div class="nav-row" style="margin-bottom:10px">
-  <button onclick="showPage('schedules')" id="nav-schedules" class="active">Schedules</button>
-  <button onclick="showPage('manual')" id="nav-manual">Manual</button>
-  <button onclick="showPage('graph')" id="nav-graph">Graph</button>
-</div>
-
-<!-- SCHEDULES PAGE -->
-<div class="page active" id="page-schedules">
-  <div class="card">
-    <div class="card-hdr">Schedules</div>
-    <table>
-      <tr><th>Time</th><th>Duration</th><th>Status</th><th></th></tr>
-      <tbody id="schedule-tbody"><tr><td colspan="4" style="text-align:center;color:var(--sub);padding:18px">Loading...</td></tr></tbody>
-    </table>
-  </div>
-  <div class="card">
-    <div class="card-hdr">Add schedule</div>
-    <div class="row3">
-      <div><label>Hour (0-23)</label><input id="add-hour" type="number" min="0" max="23" placeholder="10"></div>
-      <div><label>Minute</label><input id="add-min" type="number" min="0" max="59" placeholder="0"></div>
-      <div><label>Duration (min)</label><input id="add-dur" type="number" min="1" max="120" placeholder="15"></div>
+      <div class="stat-strip">
+        <div class="stat-card">
+          <div class="stat-val" id="s-scheds">-</div>
+          <div class="stat-lbl">Schedules</div>
+        </div>
+        <div class="stat-card" style="cursor:pointer" onclick="apiCall('resync')">
+          <div class="stat-val" id="s-time">N/A</div>
+          <div class="stat-lbl">Time Sync</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="s-sd">N/A</div>
+          <div class="stat-lbl">SD Card</div>
+        </div>
+      </div>
+      
+      <div class="last-event-card">
+        <strong style="color:var(--text);font-weight:500;">Latest Event</strong>
+        <div style="margin-top:4px;" id="s-last">No recent events.</div>
+      </div>
     </div>
-    <button class="btn btn-primary btn-full" onclick="addSchedule()">Add schedule</button>
-  </div>
-</div>
 
-<!-- MANUAL PAGE -->
-<div class="page" id="page-manual">
-  <div class="card">
-    <div class="card-hdr">Manual run</div>
-    <label>Duration (seconds)</label>
-    <input id="man-dur" type="number" min="5" max="600" placeholder="180">
-    <button class="btn btn-primary btn-full" id="btn-trigger" onclick="triggerManual()">Start manual cycle</button>
-    <button class="btn btn-danger btn-full" style="margin-top:6px" onclick="sendCommand('stop',{})">Stop relay</button>
-  </div>
-  <div class="card">
-    <div class="card-hdr">System</div>
-    <button class="btn btn-secondary btn-full" onclick="sendCommand('resync',{})">Resync time</button>
-  </div>
-</div>
 
-<!-- GRAPH PAGE -->
-<div class="page" id="page-graph">
-  <div class="view-tabs">
-    <div class="tab active" onclick="setView('week')" id="tab-week">Week</div>
-    <div class="tab" onclick="setView('month')" id="tab-month">Month</div>
-    <div class="tab" onclick="setView('all')" id="tab-all">All time</div>
-  </div>
-  <div id="week-nav" class="week-nav">
-    <button onclick="prevPeriod()">Prev</button>
-    <span class="week-label" id="period-label"></span>
-    <button onclick="nextPeriod()" id="btn-next">Next</button>
-  </div>
-  <div class="chart-wrap"><div class="bar-chart" id="chart"></div></div>
-  <div class="summary-row" id="summary"></div>
-</div>
+    <!-- SCHEDULE PAGE -->
+    <div class="page" id="p-sched">
+      <div id="sched-list"></div>
+      <div class="fab" onclick="showModal('m-sched')">
+        <span class="material-symbols-outlined">add</span>
+      </div>
+    </div>
 
-<p style="text-align:center;font-size:11px;color:var(--sub);margin-top:12px">Updates every 10s</p>
+
+    <!-- MANUAL PAGE -->
+    <div class="page" id="p-man">
+      <div id="man-list"></div>
+      <div class="e-stop" onclick="apiCall('stop')">
+        <span class="material-symbols-outlined">stop_circle</span>
+        EMERGENCY STOP ALL
+      </div>
+      <div class="fab" onclick="showModal('m-preset')">
+        <span class="material-symbols-outlined">add</span>
+      </div>
+    </div>
+
+
+    <!-- HISTORY PAGE -->
+    <div class="page" id="p-hist">
+      <div class="subnav">
+        <div class="sub-pill active" id="btn-tab-graph" onclick="setHistTab('graph')">Graph</div>
+        <div class="sub-pill" id="btn-tab-log" onclick="setHistTab('log')">Plain Log</div>
+        <div style="flex:1"></div>
+        <a href="/api/log" download="irrigation_log.txt" style="text-decoration:none;">
+          <div class="sub-pill" style="display:flex;align-items:center;gap:4px">
+            <span class="material-symbols-outlined" style="font-size:16px">download</span>
+          </div>
+        </a>
+      </div>
+
+      <div id="h-graph">
+        <div style="background:var(--card-odd); border-radius:24px; padding:20px; height:240px; display:flex; align-items:flex-end; gap:6px; overflow-x:auto;" id="chart-wrap">
+          <div style="width:100%;text-align:center;color:var(--sub);align-self:center;">Loading...</div>
+        </div>
+      </div>
+
+      <div id="h-log" style="display:none; padding-top:12px;">
+        <div id="log-wrap" style="color:var(--sub);text-align:center;">Loading log...</div>
+      </div>
+    </div>
+
+  </div><!-- end content -->
+
+
+  <!-- BOTTOM NAV -->
+  <div class="nav" style="position:relative">
+    <div id="nav-pill" style="position:absolute; top:12px; left:0; width:64px; height:32px; border-radius:16px; background:var(--card-even); transition:transform 0.3s cubic-bezier(0.2, 0, 0, 1); z-index:0;"></div>
+    
+    <div class="nav-item active" onclick="nav('home')" id="n-home" style="z-index:1">
+      <div class="nav-icon-wrap"><span class="material-symbols-outlined">home</span></div>
+      <div class="nav-label">Home</div>
+    </div>
+    <div class="nav-item" onclick="nav('sched')" id="n-sched" style="z-index:1">
+      <div class="nav-icon-wrap"><span class="material-symbols-outlined">alarm</span></div>
+      <div class="nav-label">Schedule</div>
+    </div>
+    <div class="nav-item" onclick="nav('man')" id="n-man" style="z-index:1">
+      <div class="nav-icon-wrap"><span class="material-symbols-outlined">timer</span></div>
+      <div class="nav-label">Manual</div>
+    </div>
+    <div class="nav-item" onclick="nav('hist')" id="n-hist" style="z-index:1">
+      <div class="nav-icon-wrap"><span class="material-symbols-outlined">history</span></div>
+      <div class="nav-label">History</div>
+    </div>
+  </div>
+
+
+  <!-- MODAL: ADD SCHEDULE -->
+  <div class="modal-overlay" id="m-sched" onclick="hideModal(event, 'm-sched')">
+    <div class="modal-sheet">
+      <div class="modal-title">New Cycle</div>
+      <div class="input-row">
+        <div class="input-grp" style="flex:1">
+          <label>Hour (0-23)</label>
+          <input type="number" id="in-sh" placeholder="10" min="0" max="23">
+        </div>
+        <div class="input-grp" style="flex:1">
+          <label>Minute (0-59)</label>
+          <input type="number" id="in-sm" placeholder="00" min="0" max="59">
+        </div>
+      </div>
+      <div class="input-grp">
+        <label>Duration (minutes)</label>
+        <input type="number" id="in-sd" placeholder="15" min="1" max="120">
+      </div>
+      <div class="modal-actions">
+        <div class="modal-fab cancel" onclick="hideModal(null, 'm-sched')">
+          <span class="material-symbols-outlined">close</span>
+        </div>
+        <div class="modal-fab save" onclick="submitSched()">
+          <span class="material-symbols-outlined">check</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: ADD PRESET -->
+  <div class="modal-overlay" id="m-preset" onclick="hideModal(event, 'm-preset')">
+    <div class="modal-sheet">
+      <div class="modal-title">New Cycle</div>
+      <div class="input-grp">
+        <label>Label</label>
+        <input type="text" id="in-pl" placeholder="e.g. 20 min flush">
+      </div>
+      <div class="input-grp">
+        <label>Duration (minutes)</label>
+        <input type="number" id="in-pd" placeholder="20" min="1" max="600">
+      </div>
+      <div class="modal-actions">
+        <div class="modal-fab cancel" onclick="hideModal(null, 'm-preset')">
+          <span class="material-symbols-outlined">close</span>
+        </div>
+        <div class="modal-fab save" onclick="submitPreset()">
+          <span class="material-symbols-outlined">check</span>
+        </div>
+      </div>
+    </div>
+  </div>
 
 <script>
-let cycles=[], relayOn=false;
-let view='week', offset=0;
-let noticeTimer=null;
+  // Setup API Base URL based on where this is hosted
+  const isEsp = window.location.hostname === '172.23.6.200';
+  const API_BASE = isEsp ? 'http://172.23.6.200' : '';
 
-function showPage(p){
-  document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));
-  document.querySelectorAll('.nav-row button').forEach(el=>el.classList.remove('active'));
-  document.getElementById('page-'+p).classList.add('active');
-  document.getElementById('nav-'+p).classList.add('active');
-  if(p==='graph') renderChart();
-}
+  // State
+  let globalState = { status: {}, schedules: [], cycles: [] };
+  let globalPresets = [];
+  
+  // Navigation
+  function nav(page) {
+    document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    document.getElementById('p-' + page).classList.add('active');
+    document.getElementById('n-' + page).classList.add('active');
+    
+    // Set page title
+    const titles = { home:'Irrigation', sched:'Schedule', man:'Manual', hist:'History' };
+    document.getElementById('page-title').textContent = titles[page];
+    
+    // Animate Nav Pill
+    const item = document.getElementById('n-' + page);
+    const pill = document.getElementById('nav-pill');
+    pill.style.transform = `translateX(${item.offsetLeft + (item.offsetWidth / 2) - 32}px)`;
 
-function showNotice(msg,isError){
-  clearTimeout(noticeTimer);
-  const el=document.getElementById('notice');
-  el.innerHTML="<div class='"+(isError?'alert-running':'notice')+"'>"+msg+"</div>";
-  noticeTimer=setTimeout(()=>el.innerHTML='',4000);
-}
-
-async function sendCommand(command,params){
-  try{
-    const r=await fetch('/api/command',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({command,params})});
-    const d=await r.json();
-    if(d.ok) showNotice('Command sent — waiting for controller');
-    else showNotice('Error: '+JSON.stringify(d),true);
-  }catch(e){showNotice('Network error',true);}
-}
-
-function addSchedule(){
-  const h=parseInt(document.getElementById('add-hour').value);
-  const m=parseInt(document.getElementById('add-min').value);
-  const dur=parseInt(document.getElementById('add-dur').value);
-  if(isNaN(h)||isNaN(m)||isNaN(dur)||h<0||h>23||m<0||m>59||dur<1){
-    showNotice('Please fill in all fields correctly',true); return;
+    if (page === 'hist') renderHist();
   }
-  sendCommand('add_schedule',{hour:h,minute:m,duration_sec:dur*60});
-  document.getElementById('add-hour').value='';
-  document.getElementById('add-min').value='';
-  document.getElementById('add-dur').value='';
-}
 
-function triggerManual(){
-  const dur=parseInt(document.getElementById('man-dur').value)||180;
-  sendCommand('trigger',{dur});
-}
-
-async function fetchState(){
-  try{
-    const r=await fetch('/api/state');
-    const d=await r.json();
-    updateUI(d);
-  }catch(e){
-    document.getElementById('conn-dot').className='dot dot-off';
-    document.getElementById('conn-txt').textContent='Offline';
+  // Modals
+  function showModal(id) { document.getElementById(id).classList.add('show'); }
+  function hideModal(e, id) { 
+    if(e && e.target !== document.getElementById(id)) return;
+    document.getElementById(id).classList.remove('show'); 
   }
-}
 
-function updateUI(d){
-  const st=d.status||{};
-  relayOn=!!st.relay_on;
+  // Banner Notice
+  let bTmr;
+  function banner(msg, duration = 3000) {
+    const b = document.getElementById('banner');
+    b.textContent = msg;
+    b.classList.add('show');
+    clearTimeout(bTmr);
+    bTmr = setTimeout(() => b.classList.remove('show'), duration);
+  }
 
-  // Header
-  const wifiOk=!!st.wifi_ok;
-  document.getElementById('conn-dot').className='dot'+(wifiOk?'':' dot-off');
-  document.getElementById('conn-txt').textContent=wifiOk?'Online':'Offline';
-  document.getElementById('meta').textContent=st.current_time||'No time sync';
+  // Formatting
+  function fmtTime(h, m) { return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0'); }
+  function fmtDurSec(s) {
+    const m = Math.floor(s / 60);
+    const rs = s % 60;
+    return m + "m" + (rs > 0 ? " " + rs + "s" : "");
+  }
 
-  // Stats
-  document.getElementById('s-schedules').textContent=st.schedule_count??'--';
-  document.getElementById('s-sd').textContent=st.sd_ok?'OK':'--';
-  document.getElementById('s-time').textContent=st.time_synced?'Synced':'--';
+  // SVG Ring Math
+  // R=90, Center=100,100, Circumference ≈ 565.48
+  // 0 degrees is top (12 o'clock).
+  function getStartAngle(hh, mm) {
+    const secInDay = 86400;
+    const startSec = (hh * 3600) + (mm * 60);
+    const pct = startSec / secInDay;
+    return (pct * 360) - 90; // -90 so 0 is top
+  }
+  
+  function getRingArc(hh, mm, durSec, isDone) {
+    const secInDay = 86400;
+    const pctLen = durSec / secInDay;
+    const len = pctLen * 565.48;
+    const angle = getStartAngle(hh, mm);
+    
+    // Draw an arc starting from the top, then rotate the whole circle
+    return `<circle cx="100" cy="100" r="90" fill="none" 
+            stroke="var(--sub)" 
+            stroke-width="3" 
+            transform="rotate(${angle} 100 100)"
+            stroke-dasharray="${Math.max(1, len)} 600"></circle>`;
+  }
 
-  // Relay bar
-  const rb=document.getElementById('relay-bar');
-  rb.innerHTML=relayOn
-    ?"<div class='alert-running'>Relay ON — "+st.relay_remaining+"s remaining</div>"
-    :'';
+  // Update logic
+  function renderAll() {
+    const st = globalState.status || {};
+    const scheds = globalState.schedules || [];
+    
+    // Header Status
+    const ageMs = Date.now() - (st.updated_at ? new Date(st.updated_at).getTime() : 0);
+    const online = (st.updated_at && ageMs < 120000) || isEsp;
+    document.getElementById('status-dot').className = 'status-dot ' + (online ? 'online' : '');
+    
+    // Home - Stats
+    document.getElementById('s-scheds').textContent = st.schedule_count || '0';
+    document.getElementById('s-time').textContent = st.time_synced ? 'OK' : 'Sync';
+    document.getElementById('s-sd').textContent = st.sd_ok ? 'OK' : 'Err';
+    document.getElementById('s-last').innerHTML = st.last_event || 'No events.';
+    
+    // Home - Ring Center / Dot
+    const timeMatch = (st.current_time || "").match(/(\d\d):(\d\d):(\d\d)/);
+    let hh=0, mm=0, ss=0;
+    if (timeMatch) {
+      hh = parseInt(timeMatch[1]); mm = parseInt(timeMatch[2]); ss = parseInt(timeMatch[3]);
+      document.getElementById('ring-time').textContent = fmtTime(hh, mm);
+      
+      // Move the dot
+      const angleDeg = ((hh * 3600 + mm * 60 + ss) / 86400) * 360 - 90;
+      const angleRad = angleDeg * (Math.PI / 180);
+      const dotX = 100 + 90 * Math.cos(angleRad);
+      const dotY = 100 + 90 * Math.sin(angleRad);
+      const dot = document.getElementById('ring-dot');
+      dot.setAttribute('cx', dotX);
+      dot.setAttribute('cy', dotY);
+      dot.style.display = 'block';
+    } else {
+      document.getElementById('ring-time').textContent = '--:--';
+      document.getElementById('ring-dot').style.display = 'none';
+    }
 
-  // Last event
-  const lec=document.getElementById('last-event-card');
-  lec.innerHTML=st.last_event
-    ?"<div class='card' style='font-size:12px;color:var(--sub)'><strong style='color:var(--text)'>Last event</strong><br>"+st.last_event+"</div>"
-    :'';
+    // Is running?
+    if (st.relay_on) {
+      const rm = Math.ceil(st.relay_remaining / 60);
+      document.getElementById('ring-state').textContent = `Running: ${Math.max(1, rm)}m left`;
+      document.getElementById('ring-state').style.color = '#000';
+      document.getElementById('ring-state').style.background = 'var(--text)';
+    } else {
+      document.getElementById('ring-state').textContent = 'All quiet';
+      document.getElementById('ring-state').style.color = 'var(--sub)';
+      document.getElementById('ring-state').style.background = 'var(--card-even)';
+    }
 
-  // Schedules
-  const scheds=d.schedules||[];
-  let rows='';
-  if(!scheds.length){
-    rows="<tr><td colspan='4' style='text-align:center;color:var(--sub);padding:18px'>No schedules yet</td></tr>";
-  } else {
-    for(let i=0;i<scheds.length;i++){
-      const s=scheds[i];
-      const tl=(s.hour<10?'0':'')+s.hour+':'+(s.minute<10?'0':'')+s.minute;
-      const dm=Math.floor(s.duration_sec/60), ds=s.duration_sec%60;
-      const dl=dm+'m'+(ds>0?ds+'s':'');
-      const badge=s.fired_today
-        ?"<span class='pill pill-done'>Done</span> "
-        :(s.enabled?"<span class='pill pill-on'>On</span> ":"<span class='pill pill-off'>Off</span> ");
-      rows+="<tr style='"+(s.enabled?'':'opacity:.45')+"'>"
-        +"<td><strong>"+tl+"</strong></td>"
-        +"<td>"+dl+"</td>"
-        +"<td>"+badge
-        +"<button class='btn btn-secondary btn-sm' onclick='sendCommand(\"toggle_schedule\",{index:"+i+"})'>"
-        +(s.enabled?'Disable':'Enable')+"</button></td>"
-        +"<td><button class='btn btn-danger btn-sm' onclick='if(confirm(\"Remove?\"))sendCommand(\"delete_schedule\",{index:"+i+"})'>Remove</button></td></tr>";
+    // Build arcs for schedules
+    let arcsHtml = '';
+    scheds.forEach(s => {
+      if (s.enabled) arcsHtml += getRingArc(s.hour, s.minute, s.duration_sec, s.fired_today && !st.relay_on);
+    });
+    document.getElementById('ring-arcs').innerHTML = arcsHtml;
+
+    // Sched View (no borders, alternating backgrounds)
+    let sHtml = '';
+    scheds.forEach((s, idx) => {
+      sHtml += `
+        <div class="list-item ${!s.enabled ? 'disabled' : ''}">
+          <div>
+            <div class="list-time">${fmtTime(s.hour, s.minute)}</div>
+            <div class="list-dur">${fmtDurSec(s.duration_sec)}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:16px;">
+            <div class="toggle ${s.enabled ? 'on' : ''}" onclick="apiCall('toggle_schedule', {index:${idx}}, 'Updating...', 'Saved')">
+              <div class="toggle-knob"></div>
+            </div>
+            <button class="icon-btn danger" onclick="if(confirm('Delete schedule?')) apiCall('delete_schedule', {index:${idx}}, 'Deleting...', 'Deleted')">
+              <span class="material-symbols-outlined">delete</span>
+            </button>
+          </div>
+        </div>`;
+    });
+    if(!sHtml) sHtml = '<div style="text-align:center;color:var(--sub);margin-top:40px;">No schedules.</div>';
+    document.getElementById('sched-list').innerHTML = sHtml;
+
+    // Manual View (Alternating)
+    let mHtml = '';
+    globalPresets.forEach((p, idx) => {
+      mHtml += `
+        <div class="list-item">
+          <div>
+            <div class="preset-title">${fmtDurSec(p.duration_sec)}</div>
+            <div class="preset-sub">${p.label || 'Cycle'}</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:16px;">
+            <button class="icon-btn danger" onclick="delPreset(${idx})">
+              <span class="material-symbols-outlined">delete</span>
+            </button>
+            <button class="icon-btn primary" onclick="apiCall('trigger', {dur:${p.duration_sec}}, 'Starting...', 'Started')">
+              <span class="material-symbols-outlined">play_arrow</span>
+            </button>
+          </div>
+        </div>`;
+    });
+    document.getElementById('man-list').innerHTML = mHtml;
+  }
+
+  // Fetch Loops
+  async function loopState() {
+    try {
+      const r = await fetch(API_BASE + '/api/state');
+      globalState = await r.json();
+      renderAll();
+      if(document.getElementById('p-hist').classList.contains('active')) renderHist();
+    } catch(e) { console.log('State fetch err', e); }
+    setTimeout(loopState, 10000);
+  }
+
+  async function fetchPresets() {
+    try {
+      const r = await fetch(API_BASE + (isEsp ? '/presets' : '/api/presets'));
+      const d = await r.json();
+      if (d.presets) globalPresets = d.presets;
+      renderAll();
+    } catch(e) {}
+  }
+
+  async function apiCall(cmd, d = {}, waitMsg = 'Saving...', doneMsg = 'Saved') {
+    banner(waitMsg, 20000); // keep up while waiting
+    try {
+      await fetch(API_BASE + '/api/command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: cmd, params: d })
+      });
+      banner(doneMsg);
+      setTimeout(() => fetchStateLoopOnce(), 1500); 
+    } catch(e) {
+      banner('Failed to connect', 4000);
     }
   }
-  document.getElementById('schedule-tbody').innerHTML=rows;
 
-  // Cycles for graph
-  cycles=(d.cycles||[]).map(c=>({...c,dur:Number(c.duration)}));
-  if(document.getElementById('page-graph').classList.contains('active')) renderChart();
-}
-
-// ── CHART ─────────────────────────────────────────────────────────────────────
-function fmtDur(s){if(s<60)return s+'s';return Math.floor(s/60)+'m'+(s%60?String(s%60).padStart(2,'0')+'s':'');}
-function parseDate(str){if(!str||str.length<10)return null;return new Date(str+'T12:00:00');}
-function weekStart(d){const r=new Date(d);const day=d.getDay()||7;r.setDate(d.getDate()-day+1);r.setHours(0,0,0,0);return r;}
-function addDays(d,n){const r=new Date(d);r.setDate(r.getDate()+n);return r;}
-function fmtDate(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
-function fmtShort(d){return d.getDate()+'/'+(d.getMonth()+1);}
-function fmtMonth(d){return d.toLocaleString('default',{month:'short',year:'numeric'});}
-
-const today=new Date(); today.setHours(0,0,0,0);
-
-function getRange(){
-  if(view==='week'){
-    const ws=weekStart(addDays(today,offset*7));
-    const we=addDays(ws,6);
-    return {start:ws,end:we,label:fmtShort(ws)+' - '+fmtShort(we)+' '+we.getFullYear()};
+  async function fetchStateLoopOnce() {
+    try {
+      const r = await fetch(API_BASE + '/api/state');
+      globalState = await r.json();
+      renderAll();
+    } catch(e){}
   }
-  if(view==='month'){
-    const d=new Date(today.getFullYear(),today.getMonth()+offset,1);
-    const s=new Date(d.getFullYear(),d.getMonth(),1);
-    const e=new Date(d.getFullYear(),d.getMonth()+1,0);
-    return {start:s,end:e,label:fmtMonth(s)};
-  }
-  if(!cycles.length)return {start:today,end:today,label:'All time'};
-  const dates=cycles.map(c=>parseDate(c.date)).filter(Boolean);
-  if(!dates.length)return {start:today,end:today,label:'All time'};
-  const s=new Date(Math.min(...dates.map(d=>d.getTime())));
-  const e=new Date(Math.max(...dates.map(d=>d.getTime())));
-  return {start:s,end:e,label:'All time'};
-}
 
-function getBuckets(range){
-  const buckets=[];
-  if(view==='week'){
-    for(let i=0;i<7;i++){
-      const d=addDays(range.start,i);
-      const key=fmtDate(d);
-      const cs=cycles.filter(c=>c.date===key);
-      const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-      buckets.push({label:days[d.getDay()]+'\n'+fmtShort(d),cycles:cs});
-    }
-  } else if(view==='month'){
-    let d=new Date(range.start);
-    while(d<=range.end){
-      const key=fmtDate(d);
-      const cs=cycles.filter(c=>c.date===key);
-      buckets.push({label:String(d.getDate()),cycles:cs,month:true});
-      d=addDays(d,1);
-    }
-  } else {
-    if(!cycles.length)return [];
-    const dates=cycles.map(c=>parseDate(c.date)).filter(Boolean);
-    if(!dates.length)return [];
-    let cur=weekStart(new Date(Math.min(...dates.map(d=>d.getTime()))));
-    const end=weekStart(new Date(Math.max(...dates.map(d=>d.getTime()))));
-    if(cur.getTime()===end.getTime()) end.setDate(end.getDate()+6);
-    while(cur.getTime()<=end.getTime()){
-      const we=addDays(cur,6);
-      const cs=cycles.filter(c=>{const d=parseDate(c.date);return d&&d.getTime()>=cur.getTime()&&d.getTime()<=we.getTime();}).map(c=>({...c,dur:Number(c.dur)}));
-      buckets.push({label:fmtShort(cur),cycles:cs});
-      cur=addDays(cur,7);
-    }
+  // Add Handlers
+  function submitSched() {
+    const h = parseInt(document.getElementById('in-sh').value);
+    const m = parseInt(document.getElementById('in-sm').value);
+    const d = parseInt(document.getElementById('in-sd').value);
+    if(isNaN(h)||isNaN(m)||isNaN(d)) return banner('Invalid inputs');
+    apiCall('add_schedule', { hour: h, minute: m, duration_sec: d*60 }, 'Saving...', 'Cycle added');
+    hideModal(null, 'm-sched');
+    document.getElementById('in-sh').value=''; document.getElementById('in-sm').value=''; document.getElementById('in-sd').value='';
   }
-  return buckets;
-}
 
-function renderChart(){
-  const range=getRange();
-  document.getElementById('period-label').textContent=range.label;
-  document.getElementById('week-nav').style.display=view==='all'?'none':'flex';
-  document.getElementById('btn-next').disabled=(offset>=0);
-  const buckets=getBuckets(range);
-  const maxDur=Math.max(1,...buckets.map(b=>b.cycles.reduce((a,c)=>a+Number(c.dur),0)));
-  let html='';
-  if(!buckets.length){
-    html='<div class="empty-chart" style="width:100%">No data</div>';
-  } else {
-    for(const b of buckets){
-      const totalDur=b.cycles.reduce((a,c)=>a+Number(c.dur),0);
-      const count=b.cycles.length;
-      const pct=maxDur>0?(totalDur/maxDur*100):0;
-      const tipText=count?count+' cycle'+(count>1?'s':'')+'\\n'+fmtDur(totalDur):'No cycles';
-      html+='<div class="bar-col'+(b.month?' month-col':'')+'"><div class="bar" style="height:'+Math.max(pct,count?1:0)+'%;align-self:flex-end">';
-      if(count) html+='<div class="bar-tip">'+tipText.replace('\\n','<br>')+'</div>';
-      html+='</div><div class="bar-lbl">'+b.label.replace('\n','<br>')+'</div></div>';
+  async function submitPreset() {
+    const lbl = document.getElementById('in-pl').value;
+    const durM = parseInt(document.getElementById('in-pd').value);
+    if(isNaN(durM)) return banner('Invalid duration');
+    try {
+      await fetch(API_BASE + (isEsp ? '/presets/add' : '/api/presets/add'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `dur=${durM*60}&label=${encodeURIComponent(lbl)}`
+      });
+      banner('Cycle added');
+      hideModal(null, 'm-preset');
+      document.getElementById('in-pl').value=''; document.getElementById('in-pd').value='';
+      fetchPresets();
+    } catch(e) { banner('Error adding'); }
+  }
+
+  async function delPreset(idx) {
+    if(!confirm('Delete cycle?')) return;
+    try {
+      await fetch(API_BASE + (isEsp ? `/presets/delete?i=${idx}` : '/api/presets/delete'), {
+        method: isEsp ? 'GET':'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: isEsp ? null : JSON.stringify({ index: idx })
+      });
+      fetchPresets();
+    } catch(e) {}
+  }
+
+  // History / Log
+  let histMode = 'graph';
+  function setHistTab(mode) {
+    histMode = mode;
+    document.getElementById('btn-tab-graph').classList.toggle('active', mode==='graph');
+    document.getElementById('btn-tab-log').classList.toggle('active', mode==='log');
+    document.getElementById('h-graph').style.display = mode==='graph' ? 'block' : 'none';
+    document.getElementById('h-log').style.display   = mode==='log' ? 'block' : 'none';
+    if(mode==='log') fetchLog();
+  }
+
+  function renderHist() {
+    if(histMode==='graph') {
+      const cycs = globalState.cycles || [];
+      const map = {};
+      cycs.forEach(c => {
+        if(!map[c.date]) map[c.date] = 0;
+        map[c.date] += Number(c.duration);
+      });
+      const dates = Object.keys(map).sort().slice(-7);
+      if(!dates.length) {
+        document.getElementById('chart-wrap').innerHTML = '<div style="width:100%;text-align:center;color:var(--sub);align-self:center;">No completed cycles to graph.</div>';
+        return;
+      }
+      const maxD = Math.max(...dates.map(d => map[d]));
+      let html = '';
+      dates.forEach(d => {
+        const MathPct = Math.max(2, (map[d]/maxD)*100);
+        html += `<div style="flex:1; display:flex; flex-direction:column; align-items:center; height:100%;">
+          <div style="flex:1; display:flex; align-items:flex-end; width:100%; justify-content:center; padding-bottom:8px;">
+            <div style="width:70%; min-height:4px; max-height:100%; height:${MathPct}%; background:var(--text); border-radius:4px 4px 0 0;"></div>
+          </div>
+          <div style="font-size:10px; color:var(--sub);">${d.substring(5)}</div>
+          <div style="font-size:10px; font-weight:600;">${Math.round(map[d]/60)}m</div>
+        </div>`;
+      });
+      document.getElementById('chart-wrap').innerHTML = html;
     }
   }
-  document.getElementById('chart').innerHTML=html;
-  const allInRange=buckets.flatMap(b=>b.cycles);
-  const totalCyc=allInRange.length;
-  const totalDur=allInRange.reduce((a,c)=>a+Number(c.dur),0);
-  const avgDur=totalCyc?Math.round(totalDur/totalCyc):0;
-  document.getElementById('summary').innerHTML=
-    '<div class="s-box"><div class="s-val">'+totalCyc+'</div><div class="s-lbl">Cycles</div></div>'+
-    '<div class="s-box"><div class="s-val">'+fmtDur(totalDur)+'</div><div class="s-lbl">Total time</div></div>'+
-    '<div class="s-box"><div class="s-val">'+fmtDur(avgDur)+'</div><div class="s-lbl">Avg duration</div></div>';
-  ['week','month','all'].forEach(v=>{
-    const el=document.getElementById('tab-'+v);
-    if(el) el.className='tab'+(view===v?' active':'');
-  });
-}
 
-function setView(v){view=v;offset=0;renderChart();}
-function prevPeriod(){offset--;renderChart();}
-function nextPeriod(){if(offset<0){offset++;renderChart();}}
+  async function fetchLog() {
+    try {
+      const r = await fetch(API_BASE + (isEsp ? '/log.txt' : '/api/log'));
+      const txt = await r.text();
+      const lines = txt.split('\n').filter(l => l.trim().length > 0).reverse(); 
+      
+      let html = '';
+      let curDate = '';
+      
+      lines.forEach(l => {
+        const p1 = l.indexOf('|');
+        const p2 = l.indexOf('|', p1+1);
+        if(p1 < 0) return; 
+        
+        const ts = l.substring(0, p1).trim();
+        const date = ts.substring(0, 10);
+        const time = ts.substring(11, 16);
+        
+        const evt = p2 > 0 ? l.substring(p1+1, p2).trim() : l.substring(p1+1).trim();
+        const msg = p2 > 0 ? l.substring(p2+1).trim() : '';
+        
+        let read = '';
+        if(evt === 'BOOT') read = 'System started';
+        else if(evt === 'CYCLE_START') read = 'Started irrigation';
+        else if(evt === 'CYCLE_END') read = 'Finished irrigation';
+        else if(evt === 'PRESET_ADDED') read = `Added cycle`;
+        else if(evt === 'PRESET_DELETED') read = `Deleted cycle`;
+        else read = evt + ' ' + msg;
 
-fetchState();
-setInterval(fetchState, 10000);
+        if (date !== curDate) {
+          html += `<div class="log-group"><div class="log-date">${date}</div>`;
+          curDate = date;
+        }
+        
+        html += `<div class="log-entry"><b style="color:var(--text);width:45px;display:inline-block">${time}</b> ${read}</div>`;
+      });
+      if(!html) html='<div style="padding-top:20px;">No logs found.</div>';
+      document.getElementById('log-wrap').innerHTML = html;
+    } catch(e) {
+      document.getElementById('log-wrap').innerHTML = 'Failed to load logs.';
+    }
+  }
+
+  // Init
+  fetchPresets();
+  loopState();
+  
+  // Initialize nav pill on load
+  setTimeout(() => nav('home'), 100);
 </script>
+
 </body>
 </html>
