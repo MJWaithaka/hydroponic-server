@@ -244,10 +244,12 @@ function updateUI(d){
   const st=d.status||{};
   relayOn=!!st.relay_on;
 
-  // Header
-  const wifiOk=!!st.wifi_ok;
-  document.getElementById('conn-dot').className='dot'+(wifiOk?'':' dot-off');
-  document.getElementById('conn-txt').textContent=wifiOk?'Online':'Offline';
+  // Header — show offline if last update was more than 2 minutes ago
+  const updatedAt=st.updated_at?new Date(st.updated_at).getTime():0;
+  const ageMs=Date.now()-updatedAt;
+  const espOnline=updatedAt>0&&ageMs<120000;
+  document.getElementById('conn-dot').className='dot'+(espOnline?'':' dot-off');
+  document.getElementById('conn-txt').textContent=espOnline?'Online':'Offline';
   document.getElementById('meta').textContent=st.current_time||'No time sync';
 
   // Stats
